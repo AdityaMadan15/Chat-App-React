@@ -30,10 +30,11 @@ const io = new Server(server, {
 app.set('io', io);
 
 // Import database with persistence
-const { users, friends, messages, friendRequests, onlineUsers, startAutoSave, saveData } = await import('./config/database.js');
+const { users, friends, messages, friendRequests, onlineUsers, startAutoSave, saveData, loadData } = await import('./config/database.js');
 
 // Ensure data is loaded on server start
 console.log('🔄 Loading existing data...');
+await loadData();
 
 // Import routes
 let authRoutes, userRoutes, friendRoutes, messageRoutes, settingsRoutes, blockRoutes;

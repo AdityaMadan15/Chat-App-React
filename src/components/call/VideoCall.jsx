@@ -2,18 +2,20 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useSocket } from '../../hooks/useSocket';
 import '../../styles/VideoCall.css';
 
-const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) => {
+const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peerConnection: incomingPeerConnection, stream: incomingStream }) => {
   const { socket } = useSocket();
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'voice');
   const [callStatus, setCallStatus] = useState(isIncoming ? 'Connecting...' : 'Calling...');
+  const [callDuration, setCallDuration] = useState(0);
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const timerIntervalRef = useRef(null);
 
   // STUN servers for WebRTC
   const iceServers = {
@@ -27,7 +29,55 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
   };
 
   useEffect(() => {
-    if (!isIncoming) {
+    if (isIncoming && incomingPeerConnection && incomingStream) {
+      // Use peer connection and stream from IncomingCall
+      peerConnectionRef.current = incomingPeerConnection;
+      setLocalStream(incomingStream);
+      
+      // Set local video
+      if (localVideoRef.current && callType === 'video') {
+        localVideoRef.current.srcObject = incomingStream;
+      }
+      
+      // Listen for remote stream
+      incomingPeerConnection.ontrack = (event) => {
+        console.log('📹 Remote stream received (incoming call)');
+        const remote = event.streams[0];
+        setRemoteStream(remote);
+        
+        // Start timer
+        if (!timerIntervalRef.current) {
+          timerIntervalRef.current = setInterval(() => {
+            setCallDuration(prev => prev + 1);
+          }, 1000);
+        }
+        
+        if (callType === 'video' && remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remote;
+          remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
+        } else if (callType === 'voice' && remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = remote;
+          remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
+        }
+        
+        setCallStatus('Connected');
+      };
+      
+      // Connection state
+      incomingPeerConnection.onconnectionstatechange = () => {
+        console.log('Connection state:', incomingPeerConnection.connectionState);
+        if (incomingPeerConnection.connectionState === 'connected') {
+          setCallStatus('Connected');
+        } else if (incomingPeerConnection.connectionState === 'disconnected') {
+          setCallStatus('Disconnected');
+        } else if (incomingPeerConnection.connectionState === 'failed') {
+          setCallStatus('Connection Failed');
+          setTimeout(onEndCall, 2000);
+        }
+      };
+      
+      setCallStatus('Connected');
+    } else if (!isIncoming) {
       initializeCall();
     }
 
@@ -98,10 +148,21 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
         const remote = event.streams[0];
         setRemoteStream(remote);
         
+        // Start timer when connected
+        if (!timerIntervalRef.current) {
+          timerIntervalRef.current = setInterval(() => {
+            setCallDuration(prev => prev + 1);
+          }, 1000);
+        }
+        
         if (callType === 'video' && remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remote;
+          // Force video to play
+          remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
         } else if (callType === 'voice' && remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = remote;
+          // Force audio to play
+          remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
         }
         
         setCallStatus('Connected');
@@ -194,6 +255,12 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
   };
 
   const cleanup = () => {
+    // Stop timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
@@ -202,11 +269,20 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
     }
   };
 
+  // Format call duration as MM:SS
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="video-call-container">
       <div className="video-call-header">
         <h3>{friend.username}</h3>
-        <p className="call-status">{callStatus}</p>
+        <p className="call-status">
+          {callStatus === 'Connected' ? formatDuration(callDuration) : callStatus}
+        </p>
       </div>
 
       <div className="video-streams">
@@ -228,7 +304,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
           </>
         ) : (
           <>
-            <audio ref={remoteAudioRef} autoPlay />
+            <audio ref={remoteAudioRef} autoPlay playsInline />
             <div className="voice-call-display">
               <div className="caller-avatar">
                 <div className="avatar-circle">
@@ -236,7 +312,9 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false }) =>
                 </div>
               </div>
               <h2>{friend.username}</h2>
-              <p className="voice-call-status">{callStatus}</p>
+              <p className="voice-call-status">
+                {callStatus === 'Connected' ? formatDuration(callDuration) : callStatus}
+              </p>
             </div>
           </>
         )}

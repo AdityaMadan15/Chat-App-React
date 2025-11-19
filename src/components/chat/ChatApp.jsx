@@ -595,6 +595,8 @@ const ChatApp = ({ user, onLogout }) => {
           onEndCall={() => setActiveCall(null)}
           callType={activeCall.type}
           isIncoming={activeCall.isIncoming || false}
+          peerConnection={activeCall.peerConnection}
+          stream={activeCall.stream}
         />
       )}
     </div>
