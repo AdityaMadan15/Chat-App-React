@@ -323,13 +323,32 @@ router.post('/:messageId/delete-for-everyone', authenticateUser, (req, res) => {
         saveData();
         messageFound = true;
 
-        // Emit socket event
+        // Emit socket event to both users
         const io = req.app.get('io');
         const [user1Id, user2Id] = conversationId.split('-');
-        io.to(user1Id).to(user2Id).emit('message-deleted-everyone', {
-          messageId,
-          conversationId
-        });
+        
+        // Get actual users to find their socket IDs
+        const user1 = users.get(user1Id);
+        const user2 = users.get(user2Id);
+        
+        console.log('📡 Emitting delete-for-everyone event to both users');
+        
+        // Emit to both users' socket IDs if they're online
+        if (user1 && user1.socketId) {
+          io.to(user1.socketId).emit('message-deleted-everyone', {
+            messageId,
+            conversationId
+          });
+          console.log('✅ Sent to user1:', user1.username, 'socketId:', user1.socketId);
+        }
+        
+        if (user2 && user2.socketId) {
+          io.to(user2.socketId).emit('message-deleted-everyone', {
+            messageId,
+            conversationId
+          });
+          console.log('✅ Sent to user2:', user2.username, 'socketId:', user2.socketId);
+        }
 
         return res.json({
           success: true,
