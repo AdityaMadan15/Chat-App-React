@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import '../../styles/Modals.css';
 import API_URL from '../../config';
 
-const EditProfileModal = ({ user, onClose }) => {
+const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
   const [formData, setFormData] = useState({
     username: user.username,
     email: user.email || '',
@@ -38,8 +38,12 @@ const EditProfileModal = ({ user, onClose }) => {
         };
         sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
         
-        // Force page reload to update everywhere
-        window.location.reload();
+        // Close modal and notify parent of update
+        if (onProfileUpdate) {
+          onProfileUpdate(updatedUser);
+        }
+        alert('Profile updated successfully!');
+        onClose();
       }
     } catch (error) {
       console.error('Error updating profile:', error);

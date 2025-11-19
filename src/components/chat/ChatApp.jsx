@@ -15,6 +15,7 @@ const ChatApp = ({ user, onLogout }) => {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
 
   // Load initial data
@@ -537,6 +538,12 @@ const ChatApp = ({ user, onLogout }) => {
           user={user}
           onClose={() => setShowSettings(false)}
           onLogout={onLogout}
+          onProfileUpdate={(updatedUser) => {
+            // Reload friends to reflect updated profile
+            loadFriends();
+            // Trigger UI refresh
+            setRefreshTrigger(prev => prev + 1);
+          }}
         />
       )}
 

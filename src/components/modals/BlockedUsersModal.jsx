@@ -57,11 +57,7 @@ const BlockedUsersModal = ({ onClose }) => {
           alert(`${username} has been unblocked. Your old chats are now visible.`);
           // Remove from local state
           setBlockedUsers(blockedUsers.filter(user => user.id !== userId));
-          
-          // Reload page to refresh sidebar and show unblocked user
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
+          // UI updates via parent component re-render
         } else {
           alert('Error unblocking user');
         }

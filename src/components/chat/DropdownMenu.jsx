@@ -151,7 +151,7 @@ const DropdownMenu = ({ friendId, friendName, onRemoveFriend, user, chatData }) 
         if (response.ok) {
           setIsBlocked(!isBlocked);
           alert(isBlocked ? `${friendName} has been unblocked` : `${friendName} has been blocked`);
-          window.location.reload(); // Refresh to update UI
+          // UI updates via chatData prop changes
         } else {
           alert('Error: ' + (data.message || 'Could not ' + action + ' user'));
         }

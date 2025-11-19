@@ -6,7 +6,7 @@ import PrivacyModal from './PrivacyModal.jsx';
 import BlockedUsersModal from './BlockedUsersModal.jsx';
 import '../../styles/Modals.css';
 
-const SettingsModal = ({ user, onClose, onLogout }) => {
+const SettingsModal = ({ user, onClose, onLogout, onProfileUpdate }) => {
   const [activeModal, setActiveModal] = useState(null);
 
   const openModal = (modalName) => {
@@ -50,7 +50,7 @@ const SettingsModal = ({ user, onClose, onLogout }) => {
       </div>
 
       {activeModal === 'editProfile' && (
-        <EditProfileModal user={user} onClose={closeModal} />
+        <EditProfileModal user={user} onClose={closeModal} onProfileUpdate={onProfileUpdate} />
       )}
 
       {activeModal === 'changePassword' && (

@@ -20,6 +20,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
   const [messageReactions, setMessageReactions] = useState({});
   const [isBlocked, setIsBlocked] = useState(false);
   const [deletedMessages, setDeletedMessages] = useState(new Set());
+  const [deletedForMeMessages, setDeletedForMeMessages] = useState(new Set());
 
   // Common emojis for quick access
   const commonEmojis = [
@@ -427,7 +428,9 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
       });
 
       if (response.ok) {
-        window.location.reload();
+        // Update UI immediately
+        setDeletedForMeMessages(prev => new Set(prev).add(messageId));
+        setContextMenu({ show: false, x: 0, y: 0, messageId: null });
       }
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -611,6 +614,8 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
             .filter(msg => {
               // Filter out messages deleted for current user
               if (msg.deletedFor && msg.deletedFor.includes(user.id)) return false;
+              // Filter out messages deleted for me locally
+              if (deletedForMeMessages.has(msg.id)) return false;
               return true;
             })
             .map((msg, index) => {
