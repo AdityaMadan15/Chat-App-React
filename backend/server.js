@@ -437,11 +437,6 @@ io.on('connection', (socket) => {
   // [Rest of your socket events - friend requests, typing, etc.]
 });
 
-// Helper function to find user by ID
-function findUser(userId) {
-  return users.get(userId);
-}
-
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend server running on port ${PORT}`);
