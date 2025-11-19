@@ -59,32 +59,47 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           setCallDuration(prev => prev + 1);
         }, 1000);
         
-      // Handle remote tracks
-      const handleRemoteTrack = (event) => {
-        console.log('📹 Remote track received:', event.track.kind);
-        
-        if (!hasSetRemoteStreamRef.current && event.streams && event.streams[0]) {
-          const stream = event.streams[0];
-          console.log('📹 Setting remote stream with tracks:', stream.getTracks().map(t => t.kind));
-          setRemoteStream(stream);
-          hasSetRemoteStreamRef.current = true;
+        // Handle remote tracks - wait for all tracks before setting srcObject
+        const receivedTracks = new Set();
+        const handleRemoteTrack = (event) => {
+          const trackId = event.track.id;
           
-          // Set srcObject and play
-          if (callType === 'video' && remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = stream;
-            remoteVideoRef.current.muted = false;
-            remoteVideoRef.current.volume = 1.0;
-            console.log('✅ Remote video srcObject set');
-          } else if (callType === 'voice' && remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = stream;
-            remoteAudioRef.current.muted = false;
-            remoteAudioRef.current.volume = 1.0;
-            console.log('✅ Remote audio srcObject set');
+          if (receivedTracks.has(trackId)) {
+            console.log('⏭️ Skipping duplicate track (incoming):', event.track.kind);
+            return;
           }
+          receivedTracks.add(trackId);
           
-          setCallStatus('Connected');
-        }
-      };        incomingPeerConnection.ontrack = handleRemoteTrack;
+          console.log('📹 Remote track received (incoming):', event.track.kind, '- Total:', receivedTracks.size);
+          
+          if (!hasSetRemoteStreamRef.current && event.streams && event.streams[0]) {
+            const stream = event.streams[0];
+            const expectedTracks = callType === 'video' ? 2 : 1;
+            
+            // Wait for all expected tracks
+            if (receivedTracks.size >= expectedTracks) {
+              console.log('✅ All tracks received (incoming), setting stream with:', stream.getTracks().map(t => t.kind));
+              setRemoteStream(stream);
+              hasSetRemoteStreamRef.current = true;
+              
+              // Small delay to ensure stream is ready
+              setTimeout(() => {
+                if (callType === 'video' && remoteVideoRef.current) {
+                  remoteVideoRef.current.srcObject = stream;
+                  remoteVideoRef.current.muted = false;
+                  remoteVideoRef.current.volume = 1.0;
+                  console.log('✅ Remote video srcObject set (incoming)');
+                } else if (callType === 'voice' && remoteAudioRef.current) {
+                  remoteAudioRef.current.srcObject = stream;
+                  remoteAudioRef.current.muted = false;
+                  remoteAudioRef.current.volume = 1.0;
+                  console.log('✅ Remote audio srcObject set (incoming)');
+                }
+                setCallStatus('Connected');
+              }, 100);
+            }
+          }
+        };        incomingPeerConnection.ontrack = handleRemoteTrack;
         
         // Check for existing tracks
         const receivers = incomingPeerConnection.getReceivers();
@@ -209,12 +224,27 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         }
       };
 
-      // Handle remote stream
+      // Handle remote stream - ontrack fires once per track (audio + video = 2 events)
+      const receivedTracks = new Set();
       peerConnection.ontrack = (event) => {
-        console.log('📹 Remote stream received');
+        const trackId = event.track.id;
+        
+        // Avoid processing the same track twice
+        if (receivedTracks.has(trackId)) {
+          console.log('⏭️ Skipping duplicate track:', event.track.kind);
+          return;
+        }
+        receivedTracks.add(trackId);
+        
+        console.log('📹 Remote track received:', event.track.kind, '- Total tracks:', receivedTracks.size);
         const remote = event.streams[0];
         
-        if (!hasSetRemoteStreamRef.current) {
+        // For video calls, wait for both audio and video tracks
+        // For voice calls, only wait for audio track
+        const expectedTracks = callType === 'video' ? 2 : 1;
+        
+        if (receivedTracks.size >= expectedTracks && !hasSetRemoteStreamRef.current) {
+          console.log('✅ All expected tracks received, setting up stream');
           setRemoteStream(remote);
           hasSetRemoteStreamRef.current = true;
           
@@ -225,19 +255,21 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
             }, 1000);
           }
           
-          if (callType === 'video' && remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remote;
-            remoteVideoRef.current.muted = false;
-            remoteVideoRef.current.volume = 1.0;
-            console.log('✅ Remote video srcObject set (outgoing)');
-          } else if (callType === 'voice' && remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = remote;
-            remoteAudioRef.current.muted = false;
-            remoteAudioRef.current.volume = 1.0;
-            console.log('✅ Remote audio srcObject set (outgoing)');
-          }
-          
-          setCallStatus('Connected');
+          // Small delay to ensure stream is ready
+          setTimeout(() => {
+            if (callType === 'video' && remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remote;
+              remoteVideoRef.current.muted = false;
+              remoteVideoRef.current.volume = 1.0;
+              console.log('✅ Remote video srcObject set (outgoing) with', remote.getTracks().length, 'tracks');
+            } else if (callType === 'voice' && remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = remote;
+              remoteAudioRef.current.muted = false;
+              remoteAudioRef.current.volume = 1.0;
+              console.log('✅ Remote audio srcObject set (outgoing) with', remote.getTracks().length, 'tracks');
+            }
+            setCallStatus('Connected');
+          }, 100);
         }
       };
 
