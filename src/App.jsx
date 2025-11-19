@@ -3,6 +3,7 @@ import Login from './components/auth/Login.jsx';
 import ChatApp from './components/chat/ChatApp.jsx';
 import { SocketProvider } from './hooks/useSocket.jsx';
 import './styles/App.css';
+import API_URL from './config';
 
 function App() {
   const [user, setUser] = useState(null);

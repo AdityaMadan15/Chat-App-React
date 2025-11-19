@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../../styles/Modals.css';
+import API_URL from '../../config';
 
 const ChangePasswordModal = ({ user, onClose }) => {
   const [formData, setFormData] = useState({
@@ -18,7 +19,7 @@ const ChangePasswordModal = ({ user, onClose }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/settings/change-password', {
+      const response = await fetch('${API_URL}/api/settings/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

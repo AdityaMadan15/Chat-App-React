@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../../styles/Modals.css';
+import API_URL from '../../config';
 
 const BlockedUsersModal = ({ onClose }) => {
   const [blockedUsers, setBlockedUsers] = useState([]);
@@ -21,7 +22,7 @@ const BlockedUsersModal = ({ onClose }) => {
       }
 
       // Get list of blocked users with details
-      const response = await fetch('http://localhost:3001/api/block/list', {
+      const response = await fetch('${API_URL}/api/block/list', {
         headers: { 'Authorization': `Bearer ${userId}` }
       });
       

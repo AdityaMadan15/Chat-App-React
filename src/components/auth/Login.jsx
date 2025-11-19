@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../../styles/Login.css';
+import API_URL from '../../config';
 
 const Login = ({ onLogin }) => {
   const [showSignup, setShowSignup] = useState(false);
@@ -19,7 +20,7 @@ const Login = ({ onLogin }) => {
     if (username && password) {
       setLoading(true);
       try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -65,7 +66,7 @@ const Login = ({ onLogin }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

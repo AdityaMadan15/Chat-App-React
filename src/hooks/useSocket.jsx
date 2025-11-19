@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
+import API_URL from '../config';
 
 const SocketContext = createContext();
 
@@ -21,7 +22,7 @@ export const SocketProvider = ({ children, user }) => {
 
     console.log('🔄 Initializing socket connection for user:', user.id, user.username);
     
-    const newSocket = io('http://localhost:3001', {
+    const newSocket = io(API_URL, {
       auth: {
         userId: user.id,
         username: user.username
