@@ -14,7 +14,7 @@ const IncomingCall = ({ caller, offer, callType, user, onAccept, onReject }) => 
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
       { urls: 'stun:stun4.l.google.com:19302' },
-      // Free TURN server for better connectivity
+      // Free TURN servers for better connectivity (especially same WiFi)
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -24,8 +24,15 @@ const IncomingCall = ({ caller, offer, callType, user, onAccept, onReject }) => 
         urls: 'turn:openrelay.metered.ca:443',
         username: 'openrelayproject',
         credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
       }
-    ]
+    ],
+    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 10
   };
 
   const handleAccept = async () => {

@@ -19,7 +19,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
   const iceCandidateQueueRef = useRef([]);
   const hasSetRemoteStreamRef = useRef(false);
 
-  // STUN servers for WebRTC
+  // STUN/TURN servers for WebRTC (including relay for same-network scenarios)
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -27,7 +27,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
       { urls: 'stun:stun4.l.google.com:19302' },
-      // Free TURN server for better connectivity
+      // Free TURN servers for better connectivity (especially same WiFi)
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -37,8 +37,15 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         urls: 'turn:openrelay.metered.ca:443',
         username: 'openrelayproject',
         credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
       }
-    ]
+    ],
+    iceTransportPolicy: 'all', // Use all available candidates (STUN + TURN)
+    iceCandidatePoolSize: 10   // Pre-gather candidates for faster connection
   };
 
   useEffect(() => {
