@@ -48,36 +48,28 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           setCallDuration(prev => prev + 1);
         }, 1000);
         
-        // Handle remote tracks
-        const handleRemoteTrack = (event) => {
-          console.log('📹 Remote track received:', event.track.kind);
-          
-          if (!hasSetRemoteStreamRef.current && event.streams && event.streams[0]) {
-            const stream = event.streams[0];
-            console.log('📹 Setting remote stream with tracks:', stream.getTracks().length);
-            setRemoteStream(stream);
-            hasSetRemoteStreamRef.current = true;
-            
-            // Play immediately
-            setTimeout(() => {
-              if (callType === 'video' && remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = stream;
-                remoteVideoRef.current.play().then(() => {
-                  console.log('✅ Remote video playing');
-                }).catch(e => console.error('❌ Remote video play error:', e));
-              } else if (callType === 'voice' && remoteAudioRef.current) {
-                remoteAudioRef.current.srcObject = stream;
-                remoteAudioRef.current.play().then(() => {
-                  console.log('✅ Remote audio playing');
-                }).catch(e => console.error('❌ Remote audio play error:', e));
-              }
-            }, 50);
-            
-            setCallStatus('Connected');
-          }
-        };
+      // Handle remote tracks
+      const handleRemoteTrack = (event) => {
+        console.log('📹 Remote track received:', event.track.kind);
         
-        incomingPeerConnection.ontrack = handleRemoteTrack;
+        if (!hasSetRemoteStreamRef.current && event.streams && event.streams[0]) {
+          const stream = event.streams[0];
+          console.log('📹 Setting remote stream with tracks:', stream.getTracks().map(t => t.kind));
+          setRemoteStream(stream);
+          hasSetRemoteStreamRef.current = true;
+          
+          // Set srcObject and play
+          if (callType === 'video' && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = stream;
+            console.log('✅ Remote video srcObject set');
+          } else if (callType === 'voice' && remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = stream;
+            console.log('✅ Remote audio srcObject set');
+          }
+          
+          setCallStatus('Connected');
+        }
+      };        incomingPeerConnection.ontrack = handleRemoteTrack;
         
         // Check for existing tracks
         const receivers = incomingPeerConnection.getReceivers();
@@ -93,23 +85,15 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           });
           
           if (stream.getTracks().length > 0) {
-            console.log('✅ Found existing remote stream with', stream.getTracks().length, 'tracks');
-            setRemoteStream(stream);
+            console.log('✅ Found existing remote stream with', stream.getTracks().map(t => t.kind));\n            setRemoteStream(stream);
             hasSetRemoteStreamRef.current = true;
             
-            setTimeout(() => {
-              if (callType === 'video' && remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = stream;
-                remoteVideoRef.current.play().then(() => {
-                  console.log('✅ Remote video playing (existing)');
-                }).catch(e => console.error('❌ Remote video play error (existing):', e));
-              } else if (callType === 'voice' && remoteAudioRef.current) {
-                remoteAudioRef.current.srcObject = stream;
-                remoteAudioRef.current.play().then(() => {
-                  console.log('✅ Remote audio playing (existing)');
-                }).catch(e => console.error('❌ Remote audio play error (existing):', e));
-              }
-            }, 50);
+            // Set srcObject
+            if (callType === 'video' && remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = stream;
+              console.log('✅ Remote video srcObject set (existing)');\n            } else if (callType === 'voice' && remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = stream;
+              console.log('✅ Remote audio srcObject set (existing)');\n            }
             
             setCallStatus('Connected');
           }
@@ -207,26 +191,28 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
       peerConnection.ontrack = (event) => {
         console.log('📹 Remote stream received');
         const remote = event.streams[0];
-        setRemoteStream(remote);
         
-        // Start timer when connected
-        if (!timerIntervalRef.current) {
-          timerIntervalRef.current = setInterval(() => {
-            setCallDuration(prev => prev + 1);
-          }, 1000);
+        if (!hasSetRemoteStreamRef.current) {
+          setRemoteStream(remote);
+          hasSetRemoteStreamRef.current = true;
+          
+          // Start timer when connected
+          if (!timerIntervalRef.current) {
+            timerIntervalRef.current = setInterval(() => {
+              setCallDuration(prev => prev + 1);
+            }, 1000);
+          }
+          
+          if (callType === 'video' && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remote;
+            console.log('✅ Remote video srcObject set (outgoing)');
+          } else if (callType === 'voice' && remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = remote;
+            console.log('✅ Remote audio srcObject set (outgoing)');
+          }
+          
+          setCallStatus('Connected');
         }
-        
-        if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remote;
-          // Force video to play
-          remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
-        } else if (callType === 'voice' && remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = remote;
-          // Force audio to play
-          remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
-        }
-        
-        setCallStatus('Connected');
       };
 
       // Connection state changes
@@ -370,9 +356,10 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               className="remote-video"
               style={{ objectFit: 'cover', width: '100%', height: '100%' }}
               onLoadedMetadata={(e) => {
-                console.log('📹 Remote video metadata loaded');
-                e.target.play().catch(err => console.error('Play error:', err));
+                console.log('📹 Remote video metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
               }}
+              onPlay={() => console.log('▶️ Remote video PLAYING')}
+              onError={(e) => console.error('❌ Remote video ERROR:', e)}
             />
             <video
               ref={localVideoRef}
@@ -393,9 +380,10 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               autoPlay 
               playsInline
               onLoadedMetadata={(e) => {
-                console.log('🔊 Remote audio metadata loaded');
-                e.target.play().catch(err => console.error('Audio play error:', err));
+                console.log('🔊 Remote audio metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
               }}
+              onPlay={() => console.log('▶️ Remote audio PLAYING')}
+              onError={(e) => console.error('❌ Remote audio ERROR:', e)}
             />
             <div className="voice-call-display">
               <div className="caller-avatar">
