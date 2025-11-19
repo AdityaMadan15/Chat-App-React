@@ -26,7 +26,18 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
+      { urls: 'stun:stun4.l.google.com:19302' },
+      // Free TURN server for better connectivity
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   };
 
@@ -220,7 +231,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
 
       // Connection state changes
       peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
+        console.log('📡 Connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setCallStatus('Connected');
         } else if (peerConnection.connectionState === 'disconnected') {
@@ -229,6 +240,19 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           setCallStatus('Connection Failed');
           setTimeout(onEndCall, 2000);
         }
+      };
+
+      // ICE connection state
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('🧊 ICE connection state:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+          setCallStatus('Connected');
+        }
+      };
+
+      // ICE gathering state
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('🔍 ICE gathering state:', peerConnection.iceGatheringState);
       };
 
       // Create and send offer
