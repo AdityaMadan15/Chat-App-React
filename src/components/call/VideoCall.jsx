@@ -17,6 +17,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
   const peerConnectionRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
+  const hasSetRemoteStreamRef = useRef(false);
 
   // STUN servers for WebRTC
   const iceServers = {
@@ -30,101 +31,116 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
   };
 
   useEffect(() => {
-    if (isIncoming && incomingPeerConnection && incomingStream) {
-      // Use peer connection and stream from IncomingCall
-      peerConnectionRef.current = incomingPeerConnection;
-      setLocalStream(incomingStream);
-      
-      // Set local video
-      if (localVideoRef.current && callType === 'video') {
-        localVideoRef.current.srcObject = incomingStream;
-      }
-      
-      // Check if remote stream already exists
-      const existingReceivers = incomingPeerConnection.getReceivers();
-      if (existingReceivers.length > 0 && existingReceivers[0].track) {
-        const remoteStream = new MediaStream();
-        existingReceivers.forEach(receiver => {
-          if (receiver.track) {
-            remoteStream.addTrack(receiver.track);
-          }
-        });
+    const setupCall = async () => {
+      if (isIncoming && incomingPeerConnection && incomingStream) {
+        console.log('🔵 Setting up incoming call');
+        peerConnectionRef.current = incomingPeerConnection;
+        setLocalStream(incomingStream);
         
-        if (remoteStream.getTracks().length > 0) {
-          console.log('📹 Remote stream already exists (incoming call)');
-          setRemoteStream(remoteStream);
+        // Set local video immediately
+        if (callType === 'video' && localVideoRef.current) {
+          localVideoRef.current.srcObject = incomingStream;
+          localVideoRef.current.play().catch(e => console.error('Local video play error:', e));
+        }
+        
+        // Start timer immediately
+        timerIntervalRef.current = setInterval(() => {
+          setCallDuration(prev => prev + 1);
+        }, 1000);
+        
+        // Handle remote tracks
+        const handleRemoteTrack = (event) => {
+          console.log('📹 Remote track received:', event.track.kind);
           
-          // Start timer
-          if (!timerIntervalRef.current) {
-            timerIntervalRef.current = setInterval(() => {
-              setCallDuration(prev => prev + 1);
-            }, 1000);
+          if (!hasSetRemoteStreamRef.current && event.streams && event.streams[0]) {
+            const stream = event.streams[0];
+            console.log('📹 Setting remote stream with tracks:', stream.getTracks().length);
+            setRemoteStream(stream);
+            hasSetRemoteStreamRef.current = true;
+            
+            // Play immediately
+            setTimeout(() => {
+              if (callType === 'video' && remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = stream;
+                remoteVideoRef.current.play().then(() => {
+                  console.log('✅ Remote video playing');
+                }).catch(e => console.error('❌ Remote video play error:', e));
+              } else if (callType === 'voice' && remoteAudioRef.current) {
+                remoteAudioRef.current.srcObject = stream;
+                remoteAudioRef.current.play().then(() => {
+                  console.log('✅ Remote audio playing');
+                }).catch(e => console.error('❌ Remote audio play error:', e));
+              }
+            }, 50);
+            
+            setCallStatus('Connected');
           }
-          
-          // Set remote stream to video/audio element
-          setTimeout(() => {
-            if (callType === 'video' && remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = remoteStream;
-              remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
-            } else if (callType === 'voice' && remoteAudioRef.current) {
-              remoteAudioRef.current.srcObject = remoteStream;
-              remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
+        };
+        
+        incomingPeerConnection.ontrack = handleRemoteTrack;
+        
+        // Check for existing tracks
+        const receivers = incomingPeerConnection.getReceivers();
+        console.log('🔍 Checking existing receivers:', receivers.length);
+        
+        if (receivers.length > 0 && receivers[0].track) {
+          const stream = new MediaStream();
+          receivers.forEach(receiver => {
+            if (receiver.track && receiver.track.readyState === 'live') {
+              console.log('➕ Adding existing track:', receiver.track.kind);
+              stream.addTrack(receiver.track);
             }
-          }, 100);
-          
-          setCallStatus('Connected');
-        }
-      }
-      
-      // Listen for future remote streams
-      incomingPeerConnection.ontrack = (event) => {
-        console.log('📹 Remote stream received (incoming call - ontrack)');
-        const remote = event.streams[0];
-        setRemoteStream(remote);
-        
-        // Start timer
-        if (!timerIntervalRef.current) {
-          timerIntervalRef.current = setInterval(() => {
-            setCallDuration(prev => prev + 1);
-          }, 1000);
-        }
-        
-        if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remote;
-          remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
-        } else if (callType === 'voice' && remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = remote;
-          remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
-        }
-        
-        setCallStatus('Connected');
-      };
-      
-      // Add ICE candidate handler for incoming call
-      incomingPeerConnection.addEventListener('icecandidate', (event) => {
-        if (event.candidate) {
-          socket.emit('ice-candidate', {
-            candidate: event.candidate,
-            to: friend.id
           });
+          
+          if (stream.getTracks().length > 0) {
+            console.log('✅ Found existing remote stream with', stream.getTracks().length, 'tracks');
+            setRemoteStream(stream);
+            hasSetRemoteStreamRef.current = true;
+            
+            setTimeout(() => {
+              if (callType === 'video' && remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = stream;
+                remoteVideoRef.current.play().then(() => {
+                  console.log('✅ Remote video playing (existing)');
+                }).catch(e => console.error('❌ Remote video play error (existing):', e));
+              } else if (callType === 'voice' && remoteAudioRef.current) {
+                remoteAudioRef.current.srcObject = stream;
+                remoteAudioRef.current.play().then(() => {
+                  console.log('✅ Remote audio playing (existing)');
+                }).catch(e => console.error('❌ Remote audio play error (existing):', e));
+              }
+            }, 50);
+            
+            setCallStatus('Connected');
+          }
         }
-      });
-      
-      // Connection state
-      incomingPeerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', incomingPeerConnection.connectionState);
-        if (incomingPeerConnection.connectionState === 'connected') {
-          setCallStatus('Connected');
-        } else if (incomingPeerConnection.connectionState === 'disconnected') {
-          setCallStatus('Disconnected');
-        } else if (incomingPeerConnection.connectionState === 'failed') {
-          setCallStatus('Connection Failed');
-          setTimeout(onEndCall, 2000);
-        }
-      };
-    } else if (!isIncoming) {
-      initializeCall();
-    }
+        
+        // ICE candidates
+        incomingPeerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit('ice-candidate', {
+              candidate: event.candidate,
+              to: friend.id
+            });
+          }
+        };
+        
+        incomingPeerConnection.onconnectionstatechange = () => {
+          console.log('📡 Connection state:', incomingPeerConnection.connectionState);
+          if (incomingPeerConnection.connectionState === 'connected') {
+            setCallStatus('Connected');
+          } else if (incomingPeerConnection.connectionState === 'failed') {
+            setCallStatus('Connection Failed');
+            setTimeout(onEndCall, 2000);
+          }
+        };
+        
+      } else if (!isIncoming) {
+        await initializeCall();
+      }
+    };
+    
+    setupCall();
 
     return () => {
       cleanup();
@@ -350,20 +366,37 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               ref={remoteVideoRef}
               autoPlay
               playsInline
+              controls={false}
               className="remote-video"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+              onLoadedMetadata={(e) => {
+                console.log('📹 Remote video metadata loaded');
+                e.target.play().catch(err => console.error('Play error:', err));
+              }}
             />
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
+              controls={false}
               className="local-video"
+              onLoadedMetadata={(e) => {
+                console.log('📹 Local video metadata loaded');
+              }}
             />
           </>
         ) : (
           <>
-            <audio ref={remoteAudioRef} autoPlay playsInline volume="1.0" />
+            <audio 
+              ref={remoteAudioRef} 
+              autoPlay 
+              playsInline
+              onLoadedMetadata={(e) => {
+                console.log('🔊 Remote audio metadata loaded');
+                e.target.play().catch(err => console.error('Audio play error:', err));
+              }}
+            />
             <div className="voice-call-display">
               <div className="caller-avatar">
                 <div className="avatar-circle">
