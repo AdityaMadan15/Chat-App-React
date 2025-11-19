@@ -238,10 +238,14 @@ const ChatApp = ({ user, onLogout }) => {
             type: msg.senderId === user.id ? 'sent' : 'received',
             time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: msg.timestamp,
-            status: msg.status || 'sent', // Preserve status from backend
+            status: msg.status || 'sent',
             isRead: msg.isRead || false,
             deliveredAt: msg.deliveredAt,
-            readAt: msg.readAt
+            readAt: msg.readAt,
+            reactions: msg.reactions || {},
+            deletedFor: msg.deletedFor || [],
+            isDeletedForEveryone: msg.isDeletedForEveryone || false,
+            deletedAt: msg.deletedAt
           })) : [],
         isTyping: false,
         unreadCount: 0
@@ -298,10 +302,14 @@ const ChatApp = ({ user, onLogout }) => {
               type: msg.senderId === user.id ? 'sent' : 'received',
               time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               timestamp: msg.timestamp,
-              status: msg.status || 'sent', // Preserve status
+              status: msg.status || 'sent',
               isRead: msg.isRead || false,
               deliveredAt: msg.deliveredAt,
-              readAt: msg.readAt
+              readAt: msg.readAt,
+              reactions: msg.reactions || {},
+              deletedFor: msg.deletedFor || [],
+              isDeletedForEveryone: msg.isDeletedForEveryone || false,
+              deletedAt: msg.deletedAt
             }));
             
             console.log('💬 Messages updated in state:', chatData.messages.length);
@@ -346,10 +354,14 @@ const ChatApp = ({ user, onLogout }) => {
             time: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: data.message.timestamp,
             tempId: data.message.tempId,
-            status: data.message.status || 'sent', // Preserve status
+            status: data.message.status || 'sent',
             isRead: data.message.isRead || false,
             deliveredAt: data.message.deliveredAt,
-            readAt: data.message.readAt
+            readAt: data.message.readAt,
+            reactions: data.message.reactions || {},
+            deletedFor: data.message.deletedFor || [],
+            isDeletedForEveryone: data.message.isDeletedForEveryone || false,
+            deletedAt: data.message.deletedAt
           };
           
           chatData.messages.push(newMessage);
