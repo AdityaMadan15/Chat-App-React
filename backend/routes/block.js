@@ -52,6 +52,23 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
         currentUser.blockedUsers.push(userIdToBlock);
         saveData();
 
+        // Emit socket event to update UI immediately
+        const io = req.app.get('io');
+        if (currentUser.socketId) {
+            io.to(currentUser.socketId).emit('user-blocked', {
+                blockedUserId: userIdToBlock,
+                timestamp: new Date()
+            });
+        }
+        // Notify the blocked user if they're online
+        const blockedUser = users.get(userIdToBlock);
+        if (blockedUser && blockedUser.socketId) {
+            io.to(blockedUser.socketId).emit('blocked-by-user', {
+                blockedByUserId: currentUserId,
+                timestamp: new Date()
+            });
+        }
+
         res.json({ 
             success: true, 
             message: 'User blocked successfully',
@@ -98,6 +115,23 @@ router.post('/unblock/:userId', authenticateUser, (req, res) => {
         // Unblock the user
         currentUser.blockedUsers.splice(index, 1);
         saveData();
+
+        // Emit socket event to update UI immediately
+        const io = req.app.get('io');
+        if (currentUser.socketId) {
+            io.to(currentUser.socketId).emit('user-unblocked', {
+                unblockedUserId: userIdToUnblock,
+                timestamp: new Date()
+            });
+        }
+        // Notify the unblocked user if they're online
+        const unblockedUser = users.get(userIdToUnblock);
+        if (unblockedUser && unblockedUser.socketId) {
+            io.to(unblockedUser.socketId).emit('unblocked-by-user', {
+                unblockedByUserId: currentUserId,
+                timestamp: new Date()
+            });
+        }
 
         res.json({ 
             success: true, 

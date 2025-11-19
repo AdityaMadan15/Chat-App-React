@@ -144,12 +144,45 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
       setDeletedMessages(prev => new Set(prev).add(data.messageId));
     };
 
+    // Listen for block/unblock events
+    const handleUserBlocked = (data) => {
+      console.log('🚫 User blocked:', data);
+      if (chatData.friend.id === data.blockedUserId) {
+        setIsBlocked(true);
+      }
+    };
+
+    const handleUserUnblocked = (data) => {
+      console.log('✅ User unblocked:', data);
+      if (chatData.friend.id === data.unblockedUserId) {
+        setIsBlocked(false);
+      }
+    };
+
+    const handleBlockedByUser = (data) => {
+      console.log('🚫 Blocked by user:', data);
+      if (chatData.friend.id === data.blockedByUserId) {
+        setIsBlocked(true);
+      }
+    };
+
+    const handleUnblockedByUser = (data) => {
+      console.log('✅ Unblocked by user:', data);
+      if (chatData.friend.id === data.unblockedByUserId) {
+        setIsBlocked(false);
+      }
+    };
+
     socket.on('message-sent', handleMessageSent);
     socket.on('message-delivered', handleMessageDelivered);
     socket.on('messages-read', handleMessagesRead);
     socket.on('message-reaction', handleMessageReaction);
     socket.on('message-reaction-removed', handleReactionRemoved);
     socket.on('message-deleted-everyone', handleMessageDeleted);
+    socket.on('user-blocked', handleUserBlocked);
+    socket.on('user-unblocked', handleUserUnblocked);
+    socket.on('blocked-by-user', handleBlockedByUser);
+    socket.on('unblocked-by-user', handleUnblockedByUser);
 
     return () => {
       socket.off('message-sent', handleMessageSent);
@@ -158,6 +191,10 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
       socket.off('message-reaction', handleMessageReaction);
       socket.off('message-reaction-removed', handleReactionRemoved);
       socket.off('message-deleted-everyone', handleMessageDeleted);
+      socket.off('user-blocked', handleUserBlocked);
+      socket.off('user-unblocked', handleUserUnblocked);
+      socket.off('blocked-by-user', handleBlockedByUser);
+      socket.off('unblocked-by-user', handleUnblockedByUser);
     };
   }, [socket, chatData]);
 
