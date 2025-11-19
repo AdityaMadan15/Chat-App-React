@@ -106,6 +106,30 @@ const ChatApp = ({ user, onLogout }) => {
       }
     });
 
+    // Handle message deleted for everyone
+    socket.on('message-deleted-everyone', (data) => {
+      console.log('🗑️ Message deleted for everyone received in ChatApp:', data);
+      const { messageId, conversationId } = data;
+      
+      setActiveChats(prevChats => {
+        const newChats = new Map(prevChats);
+        
+        // Find the chat that contains this message
+        for (const [friendId, chatData] of newChats) {
+          const messageIndex = chatData.messages.findIndex(msg => msg.id === messageId);
+          if (messageIndex !== -1) {
+            console.log('✅ Found message to delete, marking as deleted:', messageId);
+            // Mark the message as deleted for everyone
+            chatData.messages[messageIndex].isDeletedForEveryone = true;
+            chatData.messages[messageIndex].deletedAt = new Date();
+            break;
+          }
+        }
+        
+        return newChats;
+      });
+    });
+
     // Handle errors
     socket.on('error', (error) => {
       console.error('❌ Socket error:', error);
@@ -121,6 +145,7 @@ const ChatApp = ({ user, onLogout }) => {
       socket.off('friend-privacy-changed');
       socket.off('user-typing');
       socket.off('message-sent');
+      socket.off('message-deleted-everyone');
       // incoming-call listener removed
       socket.off('error');
     };
