@@ -146,10 +146,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         // ICE candidates
         incomingPeerConnection.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log('🧊 Local ICE candidate (incoming):', event.candidate.type, event.candidate.protocol);
             socket.emit('ice-candidate', {
               candidate: event.candidate,
               to: friend.id
             });
+          } else {
+            console.log('✅ All ICE candidates gathered (incoming)');
           }
         };
         
@@ -224,10 +227,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log('🧊 Local ICE candidate:', event.candidate.type, event.candidate.protocol, event.candidate.address || 'relay');
           socket.emit('ice-candidate', {
             candidate: event.candidate,
             to: friend.id
           });
+        } else {
+          console.log('✅ All ICE candidates gathered');
         }
       };
 
@@ -354,10 +360,10 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
     try {
       if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('✅ ICE candidate added');
+        console.log('✅ ICE candidate added:', candidate.type, candidate.protocol);
       } else {
         // Queue the candidate if remote description is not set yet
-        console.log('⏳ Queuing ICE candidate (no remote description yet)');
+        console.log('⏳ Queuing ICE candidate (no remote description yet):', candidate.type);
         iceCandidateQueueRef.current.push(candidate);
       }
     } catch (error) {
