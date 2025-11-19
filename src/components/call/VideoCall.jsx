@@ -16,6 +16,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
   const remoteAudioRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const timerIntervalRef = useRef(null);
+  const iceCandidateQueueRef = useRef([]);
 
   // STUN servers for WebRTC
   const iceServers = {
@@ -39,9 +40,45 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         localVideoRef.current.srcObject = incomingStream;
       }
       
-      // Listen for remote stream
+      // Check if remote stream already exists
+      const existingReceivers = incomingPeerConnection.getReceivers();
+      if (existingReceivers.length > 0 && existingReceivers[0].track) {
+        const remoteStream = new MediaStream();
+        existingReceivers.forEach(receiver => {
+          if (receiver.track) {
+            remoteStream.addTrack(receiver.track);
+          }
+        });
+        
+        if (remoteStream.getTracks().length > 0) {
+          console.log('📹 Remote stream already exists (incoming call)');
+          setRemoteStream(remoteStream);
+          
+          // Start timer
+          if (!timerIntervalRef.current) {
+            timerIntervalRef.current = setInterval(() => {
+              setCallDuration(prev => prev + 1);
+            }, 1000);
+          }
+          
+          // Set remote stream to video/audio element
+          setTimeout(() => {
+            if (callType === 'video' && remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remoteStream;
+              remoteVideoRef.current.play().catch(e => console.error('Video play error:', e));
+            } else if (callType === 'voice' && remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = remoteStream;
+              remoteAudioRef.current.play().catch(e => console.error('Audio play error:', e));
+            }
+          }, 100);
+          
+          setCallStatus('Connected');
+        }
+      }
+      
+      // Listen for future remote streams
       incomingPeerConnection.ontrack = (event) => {
-        console.log('📹 Remote stream received (incoming call)');
+        console.log('📹 Remote stream received (incoming call - ontrack)');
         const remote = event.streams[0];
         setRemoteStream(remote);
         
@@ -63,6 +100,16 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         setCallStatus('Connected');
       };
       
+      // Add ICE candidate handler for incoming call
+      incomingPeerConnection.addEventListener('icecandidate', (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', {
+            candidate: event.candidate,
+            to: friend.id
+          });
+        }
+      });
+      
       // Connection state
       incomingPeerConnection.onconnectionstatechange = () => {
         console.log('Connection state:', incomingPeerConnection.connectionState);
@@ -75,8 +122,6 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           setTimeout(onEndCall, 2000);
         }
       };
-      
-      setCallStatus('Connected');
     } else if (!isIncoming) {
       initializeCall();
     }
@@ -204,6 +249,14 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
     try {
       console.log('✅ Call answered by', fromId);
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      
+      // Process queued ICE candidates
+      while (iceCandidateQueueRef.current.length > 0) {
+        const candidate = iceCandidateQueueRef.current.shift();
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('✅ Added queued ICE candidate');
+      }
+      
       setCallStatus('Connected');
     } catch (error) {
       console.error('Error handling answer:', error);
@@ -212,8 +265,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
 
   const handleIceCandidate = async ({ candidate, fromId }) => {
     try {
-      if (peerConnectionRef.current) {
+      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('✅ ICE candidate added');
+      } else {
+        // Queue the candidate if remote description is not set yet
+        console.log('⏳ Queuing ICE candidate (no remote description yet)');
+        iceCandidateQueueRef.current.push(candidate);
       }
     } catch (error) {
       console.error('Error adding ICE candidate:', error);
@@ -293,6 +351,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               autoPlay
               playsInline
               className="remote-video"
+              style={{ objectFit: 'cover' }}
             />
             <video
               ref={localVideoRef}
@@ -304,7 +363,7 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           </>
         ) : (
           <>
-            <audio ref={remoteAudioRef} autoPlay playsInline />
+            <audio ref={remoteAudioRef} autoPlay playsInline volume="1.0" />
             <div className="voice-call-display">
               <div className="caller-avatar">
                 <div className="avatar-circle">
