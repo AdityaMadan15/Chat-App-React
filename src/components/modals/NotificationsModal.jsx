@@ -15,7 +15,7 @@ const NotificationsModal = ({ user, onClose }) => {
 
   const loadCurrentSettings = async () => {
     try {
-      const response = await fetch(\`/api/settings', {
+      const response = await fetch(`${API_URL}/api/settings`, {
         headers: {
           'user-id': user.id
         }
@@ -46,7 +46,7 @@ const NotificationsModal = ({ user, onClose }) => {
     
     // Save to backend in real-time
     try {
-      const response = await fetch(\`/api/settings/notifications', {
+      const response = await fetch(`${API_URL}/api/settings/notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

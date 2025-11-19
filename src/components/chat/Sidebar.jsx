@@ -24,7 +24,7 @@ const Sidebar = ({
       try {
         const loggedInUser = sessionStorage.getItem('loggedInUser');
         const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-        const response = await fetch(\`/api/block/list', {
+        const response = await fetch(`${API_URL}/api/block/list`, {
           headers: { 'Authorization': `Bearer ${userId}` }
         });
         const data = await response.json();
