@@ -1,0 +1,158 @@
+/* Chat Area Styles */
+.chat-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-light);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-light);
+  overflow: hidden;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light-secondary);
+}
+
+.welcome-content {
+  text-align: center;
+  padding: 40px;
+  max-width: 500px;
+}
+
+.welcome-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: float 4s ease-in-out infinite;
+}
+
+.welcome-content h2 {
+  font-size: 2rem;
+  color: var(--text-light);
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.welcome-content p {
+  color: var(--text-light-secondary);
+  margin-bottom: 24px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.welcome-content .btn-primary {
+  margin-bottom: 20px;
+}
+
+.welcome-content .btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+/* Chat Tabs Container */
+.chat-tabs-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--bg-light);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* No Active Chat State */
+.no-active-chat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light-secondary);
+  color: var(--text-light-secondary);
+  font-size: 1.1rem;
+  font-style: italic;
+}
+
+/* Active Chat Area */
+.active-chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .welcome-content {
+    padding: 20px;
+  }
+  
+  .welcome-icon {
+    font-size: 3rem;
+  }
+  
+  .welcome-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .welcome-content p {
+    font-size: 1rem;
+  }
+}
+
+/* Dark Theme Support */
+.theme-dark .welcome-screen {
+  background: var(--bg-dark-secondary);
+}
+
+.theme-dark .welcome-content h2 {
+  color: var(--text-dark);
+}
+
+.theme-dark .welcome-content p {
+  color: var(--text-dark-secondary);
+}
+
+.theme-dark .no-active-chat {
+  background: var(--bg-dark-secondary);
+  color: var(--text-dark-secondary);
+}
+
+.theme-dark .chat-tabs-container {
+  background: var(--bg-dark);
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px); 
+  }
+  50% { 
+    transform: translateY(-10px); 
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.welcome-content {
+  animation: fadeIn 0.6s ease-out;
+}

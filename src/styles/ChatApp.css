@@ -1,0 +1,65 @@
+/* Enhanced Chat Layout */
+.chat-container {
+  display: flex;
+  height: 100vh;
+  background: var(--bg-light);
+  overflow: hidden;
+}
+
+/* Enhanced Chat Box */
+.chat-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-light);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light-secondary);
+}
+
+.welcome-content {
+  text-align: center;
+  padding: 40px;
+}
+
+.welcome-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.welcome-content h2 {
+  font-size: 2rem;
+  color: var(--text-light);
+  margin-bottom: 16px;
+}
+
+.welcome-content p {
+  color: var(--text-light-secondary);
+  margin-bottom: 24px;
+  font-size: 1.1rem;
+}
+
+.no-active-chat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light-secondary);
+  color: var(--text-light-secondary);
+  font-size: 1.1rem;
+}
+
+/* Chat Tabs Container */
+.chat-tabs-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}

@@ -1,0 +1,43 @@
+{
+  "name": "chat-app-react",
+  "version": "1.0.0",
+  "description": "Real-time chat application with React frontend and Node.js backend",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "server": "nodemon backend/server.js",
+    "dev": "concurrently \"npm run server\" \"npm start\"",
+    "install-all": "npm install && cd backend && npm install",
+    "vercel-build": "npm run build"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.7.2",
+    "uuid": "^9.0.1",
+    "web-vitals": "^5.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "nodemon": "^3.1.11"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
