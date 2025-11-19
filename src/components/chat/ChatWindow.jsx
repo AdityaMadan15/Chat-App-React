@@ -19,6 +19,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
   const [showReactionPicker, setShowReactionPicker] = useState({ show: false, messageId: null });
   const [messageReactions, setMessageReactions] = useState({});
   const [isBlocked, setIsBlocked] = useState(false);
+  const [deletedMessages, setDeletedMessages] = useState(new Set());
 
   // Common emojis for quick access
   const commonEmojis = [
@@ -138,8 +139,8 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     // Listen for message deleted for everyone
     const handleMessageDeleted = (data) => {
       console.log('🗑️ Message deleted for everyone:', data);
-      // Force re-render by updating chatData or message list
-      window.location.reload(); // Simple approach - reload to get updated messages
+      // Add message to deleted set for immediate UI update
+      setDeletedMessages(prev => new Set(prev).add(data.messageId));
     };
 
     socket.on('message-sent', handleMessageSent);
@@ -447,22 +448,26 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
 
       const data = await response.json();
       if (response.ok) {
-        window.location.reload();
+        // Update UI immediately
+        setDeletedMessages(prev => new Set(prev).add(messageId));
+        setContextMenu({ show: false, x: 0, y: 0, messageId: null });
       } else {
-        alert(data.error || 'Cannot delete this message');
+        alert(data.message || 'Cannot delete this message');
+        setContextMenu({ show: false, x: 0, y: 0, messageId: null });
       }
     } catch (error) {
       console.error('Error deleting message for everyone:', error);
+      alert('Failed to delete message');
+      setContextMenu({ show: false, x: 0, y: 0, messageId: null });
     }
-    setContextMenu({ show: false, x: 0, y: 0, messageId: null });
   };
 
   const canDeleteForEveryone = (message) => {
     if (message.type !== 'sent') return false;
     const messageTime = new Date(message.timestamp);
     const now = new Date();
-    const hoursSince = (now - messageTime) / (1000 * 60 * 60);
-    return hoursSince < 1;
+    const minutesSince = (now - messageTime) / (1000 * 60);
+    return minutesSince < 2;
   };
 
   const handleMessageRightClick = (e, messageId) => {
@@ -610,7 +615,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
             })
             .map((msg, index) => {
               const reactions = msg.reactions || messageReactions[msg.id] || {};
-              const isDeleted = msg.isDeletedForEveryone;
+              const isDeleted = msg.isDeletedForEveryone || deletedMessages.has(msg.id);
               
               return (
                 <div 

@@ -307,13 +307,13 @@ router.post('/:messageId/delete-for-everyone', authenticateUser, (req, res) => {
           });
         }
 
-        // Check time limit (1 hour)
-        const oneHour = 60 * 60 * 1000;
+        // Check time limit (2 minutes)
+        const twoMinutes = 2 * 60 * 1000;
         const timeSinceSent = new Date() - new Date(message.timestamp);
-        if (timeSinceSent > oneHour) {
+        if (timeSinceSent > twoMinutes) {
           return res.status(403).json({
             success: false,
-            message: 'Messages can only be deleted within 1 hour of sending'
+            message: 'Messages can only be deleted within 2 minutes of sending'
           });
         }
 
