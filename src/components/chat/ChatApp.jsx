@@ -119,9 +119,19 @@ const ChatApp = ({ user, onLogout }) => {
           const messageIndex = chatData.messages.findIndex(msg => msg.id === messageId);
           if (messageIndex !== -1) {
             console.log('✅ Found message to delete, marking as deleted:', messageId);
-            // Mark the message as deleted for everyone
-            chatData.messages[messageIndex].isDeletedForEveryone = true;
-            chatData.messages[messageIndex].deletedAt = new Date();
+            // Create a new messages array with the updated message
+            const updatedMessages = [...chatData.messages];
+            updatedMessages[messageIndex] = {
+              ...updatedMessages[messageIndex],
+              isDeletedForEveryone: true,
+              deletedAt: new Date()
+            };
+            // Update the chat data with new messages array
+            newChats.set(friendId, {
+              ...chatData,
+              messages: updatedMessages
+            });
+            console.log('✅ Updated messages array for friend:', friendId);
             break;
           }
         }
