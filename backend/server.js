@@ -253,13 +253,9 @@ io.on('connection', (socket) => {
       });
       
       console.log('📨 Message delivered to receiver:', receiver.username);
+    } else {
+      console.log('⚠️ Receiver is offline or notifications disabled');
     }
-
-    // Also send to sender (for multi-device sync)
-    io.to(senderId).emit('new-message', {
-      message: message,
-      sender: sender.toPublicJSON()
-    });
 
     console.log('✅ MESSAGE PROCESSING COMPLETE');
   });
@@ -288,6 +284,7 @@ io.on('connection', (socket) => {
   socket.on('typing-stop', (data) => {
     const { receiverId } = data;
     const senderId = socket.userId;
+    const sender = findUser(senderId);
     const receiver = findUser(receiverId);
 
     if (receiver && receiver.socketId) {
