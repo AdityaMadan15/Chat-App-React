@@ -113,7 +113,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadFriendRequests = async () => {
     try {
       console.log('📨 Loading friend requests...');
-      const response = await fetch('${API_URL}/api/friends/requests', {
+      const response = await fetch(`${API_URL}/api/friends/requests`, {
         headers: {
           'user-id': user.id
         }
@@ -133,7 +133,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadRecentConversations = async () => {
     try {
       console.log('💬 Loading recent conversations...');
-      const response = await fetch('${API_URL}/api/messages/conversations', {
+      const response = await fetch(`${API_URL}/api/messages/conversations`, {
         headers: {
           'user-id': user.id
         }

@@ -14,7 +14,7 @@ const EditProfileModal = ({ user, onClose }) => {
     e.preventDefault();
     
     try {
-      const response = await fetch('${API_URL}/api/users/profile', {
+      const response = await fetch(`${API_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ const EditProfileModal = ({ user, onClose }) => {
       
       try {
         // Save to backend
-        const response = await fetch('${API_URL}/api/users/upload-avatar', {
+        const response = await fetch(`${API_URL}/api/users/upload-avatar`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

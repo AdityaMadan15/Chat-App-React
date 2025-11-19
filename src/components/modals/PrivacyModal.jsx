@@ -17,7 +17,7 @@ const PrivacyModal = ({ user, onClose }) => {
 
   const loadCurrentSettings = async () => {
     try {
-      const response = await fetch('${API_URL}/api/settings', {
+      const response = await fetch(`${API_URL}/api/settings`, {
         headers: {
           'user-id': user.id
         }
@@ -50,7 +50,7 @@ const PrivacyModal = ({ user, onClose }) => {
     
     // Save to backend in real-time
     try {
-      const response = await fetch('${API_URL}/api/settings/privacy', {
+      const response = await fetch(`${API_URL}/api/settings/privacy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

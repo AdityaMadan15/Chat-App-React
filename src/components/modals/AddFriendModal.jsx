@@ -51,7 +51,7 @@ const AddFriendModal = ({ user, friends, onClose, onFriendRequestSent }) => {
   const sendFriendRequest = async (friendUsername, friendId) => {
     try {
       setError('');
-      const response = await fetch('${API_URL}/api/friends/request', {
+      const response = await fetch(`${API_URL}/api/friends/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

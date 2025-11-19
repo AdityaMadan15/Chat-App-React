@@ -22,7 +22,7 @@ const BlockedUsersModal = ({ onClose }) => {
       }
 
       // Get list of blocked users with details
-      const response = await fetch('${API_URL}/api/block/list', {
+      const response = await fetch(`${API_URL}/api/block/list`, {
         headers: { 'Authorization': `Bearer ${userId}` }
       });
       
