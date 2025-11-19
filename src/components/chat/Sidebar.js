@@ -24,7 +24,7 @@ const Sidebar = ({
       try {
         const loggedInUser = sessionStorage.getItem('loggedInUser');
         const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-        const response = await fetch('http://localhost:3001/api/block/list', {
+        const response = await fetch(`${API_URL}/api/block/list`, {
           headers: { 'Authorization': `Bearer ${userId}` }
         });
         const data = await response.json();
@@ -115,7 +115,7 @@ const Sidebar = ({
     try {
       console.log('✅ Accepting friend request:', requestId);
       
-      const response = await fetch(`http://localhost:3001/api/friends/requests/${requestId}/accept`, {
+      const response = await fetch(`${API_URL}/api/friends/requests/${requestId}/accept`, {
         method: 'POST',
         headers: {
           'user-id': user.id,
@@ -155,7 +155,7 @@ const Sidebar = ({
     try {
       console.log('❌ Declining friend request:', requestId);
       
-      const response = await fetch(`http://localhost:3001/api/friends/requests/${requestId}/decline`, {
+      const response = await fetch(`${API_URL}/api/friends/requests/${requestId}/decline`, {
         method: 'POST',
         headers: {
           'user-id': user.id,

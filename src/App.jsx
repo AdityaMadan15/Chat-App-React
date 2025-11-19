@@ -17,7 +17,7 @@ function App() {
         
         // Verify user still exists in backend and get fresh data
         try {
-          const response = await fetch(`http://localhost:3001/api/users/${userData.id}`, {
+          const response = await fetch(`${API_URL}/api/users/${userData.id}`, {
             headers: {
               'user-id': userData.id
             }
@@ -59,7 +59,7 @@ function App() {
   const handleLogin = async (userData) => {
     try {
       // Get fresh user data from backend on login
-      const response = await fetch(`http://localhost:3001/api/users/${userData.id}`, {
+      const response = await fetch(`${API_URL}/api/users/${userData.id}`, {
         headers: {
           'user-id': userData.id
         }

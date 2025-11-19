@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../../styles/Modals.css';
+import API_URL from '../../config';
 
 const NotificationsModal = ({ user, onClose }) => {
   const [settings, setSettings] = useState({
@@ -14,7 +15,7 @@ const NotificationsModal = ({ user, onClose }) => {
 
   const loadCurrentSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/settings', {
+      const response = await fetch(\`/api/settings', {
         headers: {
           'user-id': user.id
         }
@@ -45,7 +46,7 @@ const NotificationsModal = ({ user, onClose }) => {
     
     // Save to backend in real-time
     try {
-      const response = await fetch('http://localhost:3001/api/settings/notifications', {
+      const response = await fetch(\`/api/settings/notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

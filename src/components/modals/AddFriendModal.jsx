@@ -19,7 +19,7 @@ const AddFriendModal = ({ user, friends, onClose, onFriendRequestSent }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:3001/api/users/search?q=${encodeURIComponent(searchTerm)}`, {
+      const response = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(searchTerm)}`, {
         headers: {
           'user-id': user.id
         }

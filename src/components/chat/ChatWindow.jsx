@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../../hooks/useSocket.jsx';
 import DropdownMenu from './DropdownMenu.jsx';
 import '../../styles/ChatWindow.css';
+import API_URL from '../../config';
 
 const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
   const { socket, isConnected } = useSocket();
@@ -57,7 +58,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
       try {
         const loggedInUser = sessionStorage.getItem('loggedInUser');
         const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-        const response = await fetch(`http://localhost:3001/api/block/check/${chatData.friend.id}`, {
+        const response = await fetch(`${API_URL}/api/block/check/${chatData.friend.id}`, {
           headers: { 'Authorization': `Bearer ${userId}` }
         });
         const data = await response.json();
@@ -368,7 +369,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     try {
       const loggedInUser = sessionStorage.getItem('loggedInUser');
       const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-      const response = await fetch(`http://localhost:3001/api/messages/${messageId}/react`, {
+      const response = await fetch(`${API_URL}/api/messages/${messageId}/react`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -394,7 +395,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     try {
       const loggedInUser = sessionStorage.getItem('loggedInUser');
       const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-      const response = await fetch(`http://localhost:3001/api/messages/${messageId}/react`, {
+      const response = await fetch(`${API_URL}/api/messages/${messageId}/react`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${userId}`
@@ -417,7 +418,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     try {
       const loggedInUser = sessionStorage.getItem('loggedInUser');
       const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-      const response = await fetch(`http://localhost:3001/api/messages/${messageId}/delete-for-me`, {
+      const response = await fetch(`${API_URL}/api/messages/${messageId}/delete-for-me`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userId}`
@@ -437,7 +438,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     try {
       const loggedInUser = sessionStorage.getItem('loggedInUser');
       const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-      const response = await fetch(`http://localhost:3001/api/messages/${messageId}/delete-for-everyone`, {
+      const response = await fetch(`${API_URL}/api/messages/${messageId}/delete-for-everyone`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userId}`

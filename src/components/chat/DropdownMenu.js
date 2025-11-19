@@ -32,7 +32,7 @@ const DropdownMenu = ({ friendId, friendName, onRemoveFriend, user, chatData }) 
         }
         const userId = JSON.parse(loggedInUser).id;
         console.log('Checking block status with userId:', userId);
-        const response = await fetch(`http://localhost:3001/api/block/check/${friendId}`, {
+        const response = await fetch(`${API_URL}/api/block/check/${friendId}`, {
           headers: { 'Authorization': `Bearer ${userId}` }
         });
         const data = await response.json();
@@ -139,7 +139,7 @@ const DropdownMenu = ({ friendId, friendName, onRemoveFriend, user, chatData }) 
         const userId = JSON.parse(loggedInUser).id;
         console.log(`Attempting to ${action} user with userId:`, userId);
         
-        const response = await fetch(`http://localhost:3001/api/block/${action}/${friendId}`, {
+        const response = await fetch(`${API_URL}/api/block/${action}/${friendId}`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${userId}` }
         });

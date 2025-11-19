@@ -3,6 +3,7 @@ import { useSocket } from '../../hooks/useSocket.jsx';
 import Sidebar from './Sidebar.jsx';
 import ChatArea from './ChatArea.jsx';
 import AddFriendModal from '../modals/AddFriendModal.jsx';
+import API_URL from '../../config';
 import SettingsModal from '../modals/SettingsModal.jsx';
 import '../../styles/ChatApp.css';
 
@@ -92,7 +93,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadFriends = async () => {
     try {
       console.log('👥 Loading friends...');
-      const response = await fetch('http://localhost:3001/api/friends/list', {
+      const response = await fetch(\`/api/friends/list', {
         headers: {
           'user-id': user.id
         }
@@ -112,7 +113,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadFriendRequests = async () => {
     try {
       console.log('📨 Loading friend requests...');
-      const response = await fetch('http://localhost:3001/api/friends/requests', {
+      const response = await fetch(\`/api/friends/requests', {
         headers: {
           'user-id': user.id
         }
@@ -132,7 +133,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadRecentConversations = async () => {
     try {
       console.log('💬 Loading recent conversations...');
-      const response = await fetch('http://localhost:3001/api/messages/conversations', {
+      const response = await fetch(\`/api/messages/conversations', {
         headers: {
           'user-id': user.id
         }
@@ -193,7 +194,7 @@ const ChatApp = ({ user, onLogout }) => {
 
     try {
       console.log('🔍 Fetching friend data...');
-      const response = await fetch(`http://localhost:3001/api/users/${friendId}`, {
+      const response = await fetch(`${API_URL}/api/users/${friendId}`, {
         headers: {
           'user-id': user.id
         }
@@ -211,7 +212,7 @@ const ChatApp = ({ user, onLogout }) => {
       
       // Load conversation history first
       console.log('📖 Loading conversation history...');
-      const conversationResponse = await fetch(`http://localhost:3001/api/messages/conversation/${friendId}`, {
+      const conversationResponse = await fetch(`${API_URL}/api/messages/conversation/${friendId}`, {
         headers: {
           'user-id': user.id
         }
@@ -265,7 +266,7 @@ const ChatApp = ({ user, onLogout }) => {
   const loadConversation = async (friendId) => {
     try {
       console.log('📖 Loading conversation with:', friendId);
-      const response = await fetch(`http://localhost:3001/api/messages/conversation/${friendId}`, {
+      const response = await fetch(`${API_URL}/api/messages/conversation/${friendId}`, {
         headers: {
           'user-id': user.id
         }
@@ -471,7 +472,7 @@ const ChatApp = ({ user, onLogout }) => {
   const handleRemoveFriend = async (friendId) => {
     try {
       console.log('🗑️ Removing friend:', friendId);
-      const response = await fetch(`http://localhost:3001/api/friends/${friendId}`, {
+      const response = await fetch(`${API_URL}/api/friends/${friendId}`, {
         method: 'DELETE',
         headers: {
           'user-id': user.id

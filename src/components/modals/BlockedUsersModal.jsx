@@ -48,7 +48,7 @@ const BlockedUsersModal = ({ onClose }) => {
       try {
         const loggedInUser = sessionStorage.getItem('loggedInUser');
         const currentUserId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-        const response = await fetch(`http://localhost:3001/api/block/unblock/${userId}`, {
+        const response = await fetch(`${API_URL}/api/block/unblock/${userId}`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${currentUserId}` }
         });
