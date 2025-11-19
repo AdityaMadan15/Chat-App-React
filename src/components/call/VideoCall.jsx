@@ -85,15 +85,18 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           });
           
           if (stream.getTracks().length > 0) {
-            console.log('✅ Found existing remote stream with', stream.getTracks().map(t => t.kind));\n            setRemoteStream(stream);
+            console.log('✅ Found existing remote stream with', stream.getTracks().map(t => t.kind));
+            setRemoteStream(stream);
             hasSetRemoteStreamRef.current = true;
             
             // Set srcObject
             if (callType === 'video' && remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = stream;
-              console.log('✅ Remote video srcObject set (existing)');\n            } else if (callType === 'voice' && remoteAudioRef.current) {
+              console.log('✅ Remote video srcObject set (existing)');
+            } else if (callType === 'voice' && remoteAudioRef.current) {
               remoteAudioRef.current.srcObject = stream;
-              console.log('✅ Remote audio srcObject set (existing)');\n            }
+              console.log('✅ Remote audio srcObject set (existing)');
+            }
             
             setCallStatus('Connected');
           }
