@@ -3,8 +3,6 @@ import { useSocket } from '../../hooks/useSocket.jsx';
 import Sidebar from './Sidebar.jsx';
 import ChatArea from './ChatArea.jsx';
 import AddFriendModal from '../modals/AddFriendModal.jsx';
-import IncomingCall from '../call/IncomingCall.jsx';
-import VideoCall from '../call/VideoCall.jsx';
 import API_URL from '../../config';
 import SettingsModal from '../modals/SettingsModal.jsx';
 import '../../styles/ChatApp.css';
@@ -17,8 +15,7 @@ const ChatApp = ({ user, onLogout }) => {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [incomingCall, setIncomingCall] = useState(null); // { caller, offer, callType }
-  const [activeCall, setActiveCall] = useState(null); // { type, friend, peerConnection, stream }
+  
 
   // Load initial data
   useEffect(() => {
@@ -82,12 +79,7 @@ const ChatApp = ({ user, onLogout }) => {
       console.error('❌ Socket error:', error);
     });
 
-    // Handle incoming calls
-    socket.on('incoming-call', ({ from, offer, callType, callerName }) => {
-      console.log('📞 Incoming call from:', callerName);
-      const caller = friends.find(f => f.id === from) || { id: from, username: callerName };
-      setIncomingCall({ caller, offer, callType });
-    });
+    // incoming call feature removed
 
     // Cleanup
     return () => {
@@ -97,7 +89,7 @@ const ChatApp = ({ user, onLogout }) => {
       socket.off('friend-privacy-changed');
       socket.off('user-typing');
       socket.off('message-sent');
-      socket.off('incoming-call');
+      // incoming-call listener removed
       socket.off('error');
     };
   }, [socket, activeChats, friends]);
@@ -548,57 +540,7 @@ const ChatApp = ({ user, onLogout }) => {
         />
       )}
 
-      {incomingCall && (
-        <IncomingCall
-          caller={incomingCall.caller}
-          offer={incomingCall.offer}
-          callType={incomingCall.callType}
-          user={user}
-          onAccept={(caller, peerConnection, stream) => {
-            // Open chat with caller
-            openChat(caller.id);
-            
-            // Set active call
-            setActiveCall({
-              type: incomingCall.callType,
-              friend: caller,
-              peerConnection,
-              stream,
-              isIncoming: true
-            });
-            
-            // Add call message to chat
-            const callMessage = {
-              id: `call_${Date.now()}`,
-              content: `${incomingCall.callType === 'video' ? '📹' : '📞'} ${incomingCall.callType === 'video' ? 'Video' : 'Voice'} call`,
-              senderId: caller.id,
-              sender: caller.username,
-              type: 'received',
-              messageType: 'call',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              timestamp: new Date().toISOString()
-            };
-            sendMessage(caller.id, callMessage);
-            
-            setIncomingCall(null);
-          }}
-          onReject={() => {
-            setIncomingCall(null);
-          }}
-        />
-      )}
-
-      {activeCall && (
-        <VideoCall
-          friend={activeCall.friend}
-          user={user}
-          onEndCall={() => setActiveCall(null)}
-          callType={activeCall.type}
-          isIncoming={activeCall.isIncoming || false}
-          peerConnection={activeCall.peerConnection}
-          stream={activeCall.stream}
-        />
-      )}
+      {/* Call UI removed; chat-only mode retained */}
     </div>
   );
 };

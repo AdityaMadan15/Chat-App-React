@@ -373,67 +373,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // WebRTC Signaling for Voice/Video Calls
-  socket.on('call-user', ({ offer, to, callType, callerName }) => {
-    const recipient = findUser(to);
-    if (recipient && recipient.socketId) {
-      io.to(recipient.socketId).emit('incoming-call', {
-        from: socket.userId,
-        offer,
-        callType,
-        callerName
-      });
-      
-      // Save call message to conversation
-      const conversationId = [socket.userId, to].sort().join('-');
-      if (!messages.has(conversationId)) {
-        messages.set(conversationId, []);
-      }
-      
-      const callMessage = {
-        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        conversationId,
-        senderId: socket.userId,
-        receiverId: to,
-        content: `${callType === 'video' ? '📹' : '📞'} ${callType === 'video' ? 'Video' : 'Voice'} call`,
-        messageType: 'call',
-        timestamp: new Date(),
-        isRead: false,
-        status: 'sent'
-      };
-      
-      messages.get(conversationId).push(callMessage);
-      saveData();
-    }
-  });
-
-  socket.on('answer-call', ({ answer, to, from }) => {
-    const caller = findUser(to);
-    if (caller && caller.socketId) {
-      io.to(caller.socketId).emit('call-answered', { answer, fromId: from });
-    }
-  });
-
-  socket.on('ice-candidate', ({ candidate, to }) => {
-    const peer = findUser(to);
-    if (peer && peer.socketId) {
-      io.to(peer.socketId).emit('ice-candidate', { candidate, fromId: socket.userId });
-    }
-  });
-
-  socket.on('reject-call', ({ to }) => {
-    const caller = findUser(to);
-    if (caller && caller.socketId) {
-      io.to(caller.socketId).emit('call-rejected');
-    }
-  });
-
-  socket.on('end-call', ({ to }) => {
-    const peer = findUser(to);
-    if (peer && peer.socketId) {
-      io.to(peer.socketId).emit('call-ended');
-    }
-  });
+  // WebRTC signaling removed: voice/video call functionality reverted
 
   // [Rest of your socket events - friend requests, typing, etc.]
 });

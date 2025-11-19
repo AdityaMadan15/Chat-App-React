@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../../hooks/useSocket.jsx';
 import DropdownMenu from './DropdownMenu.jsx';
-import VideoCall from '../call/VideoCall.jsx';
 import '../../styles/ChatWindow.css';
 import API_URL from '../../config';
 
@@ -20,7 +19,6 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
   const [showReactionPicker, setShowReactionPicker] = useState({ show: false, messageId: null });
   const [messageReactions, setMessageReactions] = useState({});
   const [isBlocked, setIsBlocked] = useState(false);
-  const [activeCall, setActiveCall] = useState(null); // { type: 'voice' | 'video', friend: {...} }
 
   // Common emojis for quick access
   const commonEmojis = [
@@ -547,68 +545,11 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     }
   };
 
-  const startVoiceCall = () => {
-    if (isBlocked) {
-      alert('Cannot make calls to blocked users');
-      return;
-    }
-    
-    // Add call message to chat
-    const callMessage = {
-      id: `call_${Date.now()}`,
-      content: '📞 Voice call',
-      senderId: user.id,
-      sender: user.username,
-      type: 'sent',
-      messageType: 'call',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: new Date().toISOString()
-    };
-    onSendMessage(friend.id, callMessage);
-    
-    setActiveCall({ type: 'voice', friend });
-  };
-
-  const startVideoCall = () => {
-    if (isBlocked) {
-      alert('Cannot make calls to blocked users');
-      return;
-    }
-    
-    // Add call message to chat
-    const callMessage = {
-      id: `call_${Date.now()}`,
-      content: '📹 Video call',
-      senderId: user.id,
-      sender: user.username,
-      type: 'sent',
-      messageType: 'call',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: new Date().toISOString()
-    };
-    onSendMessage(friend.id, callMessage);
-    
-    setActiveCall({ type: 'video', friend });
-  };
-
-  const endCall = () => {
-    setActiveCall(null);
-  };
+  
 
   const status = updateFriendStatus();
 
-  // If there's an active call, show the VideoCall component
-  if (activeCall) {
-    return (
-      <VideoCall
-        friend={activeCall.friend}
-        user={user}
-        onEndCall={endCall}
-        callType={activeCall.type}
-        isIncoming={false}
-      />
-    );
-  }
+  // Active call UI removed — chat view continues
 
   return (
     <div className="active-chat" id={`chatWindow-${friend.id}`}>
@@ -637,8 +578,6 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
           </div>
         </div>
         <div className="chat-actions">
-          <button title="Voice Call" onClick={startVoiceCall}>📞</button>
-          <button title="Video Call" onClick={startVideoCall}>📹</button>
           <DropdownMenu 
             friendId={friend.id}
             friendName={friend.username}
