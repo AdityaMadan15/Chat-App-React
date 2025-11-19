@@ -72,9 +72,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           // Set srcObject and play
           if (callType === 'video' && remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = stream;
+            remoteVideoRef.current.muted = false;
+            remoteVideoRef.current.volume = 1.0;
             console.log('✅ Remote video srcObject set');
           } else if (callType === 'voice' && remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = stream;
+            remoteAudioRef.current.muted = false;
+            remoteAudioRef.current.volume = 1.0;
             console.log('✅ Remote audio srcObject set');
           }
           
@@ -103,9 +107,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
             // Set srcObject
             if (callType === 'video' && remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = stream;
+              remoteVideoRef.current.muted = false;
+              remoteVideoRef.current.volume = 1.0;
               console.log('✅ Remote video srcObject set (existing)');
             } else if (callType === 'voice' && remoteAudioRef.current) {
               remoteAudioRef.current.srcObject = stream;
+              remoteAudioRef.current.muted = false;
+              remoteAudioRef.current.volume = 1.0;
               console.log('✅ Remote audio srcObject set (existing)');
             }
             
@@ -219,9 +227,13 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
           
           if (callType === 'video' && remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remote;
+            remoteVideoRef.current.muted = false;
+            remoteVideoRef.current.volume = 1.0;
             console.log('✅ Remote video srcObject set (outgoing)');
           } else if (callType === 'voice' && remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remote;
+            remoteAudioRef.current.muted = false;
+            remoteAudioRef.current.volume = 1.0;
             console.log('✅ Remote audio srcObject set (outgoing)');
           }
           
@@ -380,12 +392,22 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               autoPlay
               playsInline
               controls={false}
+              muted={false}
+              volume={1.0}
               className="remote-video"
               style={{ objectFit: 'cover', width: '100%', height: '100%' }}
               onLoadedMetadata={(e) => {
                 console.log('📹 Remote video metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
+                e.target.muted = false;
+                e.target.volume = 1.0;
               }}
-              onPlay={() => console.log('▶️ Remote video PLAYING')}
+              onPlay={() => {
+                console.log('▶️ Remote video PLAYING');
+                if (remoteVideoRef.current) {
+                  remoteVideoRef.current.muted = false;
+                  remoteVideoRef.current.volume = 1.0;
+                }
+              }}
               onError={(e) => console.error('❌ Remote video ERROR:', e)}
             />
             <video
@@ -406,10 +428,19 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
               ref={remoteAudioRef} 
               autoPlay 
               playsInline
+              muted={false}
               onLoadedMetadata={(e) => {
                 console.log('🔊 Remote audio metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
+                e.target.muted = false;
+                e.target.volume = 1.0;
               }}
-              onPlay={() => console.log('▶️ Remote audio PLAYING')}
+              onPlay={() => {
+                console.log('▶️ Remote audio PLAYING');
+                if (remoteAudioRef.current) {
+                  remoteAudioRef.current.muted = false;
+                  remoteAudioRef.current.volume = 1.0;
+                }
+              }}
               onError={(e) => console.error('❌ Remote audio ERROR:', e)}
             />
             <div className="voice-call-display">
