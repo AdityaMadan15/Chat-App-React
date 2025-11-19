@@ -285,11 +285,18 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
         console.log('📡 Connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setCallStatus('Connected');
+          // Force play on connection
+          if (callType === 'video' && remoteVideoRef.current) {
+            remoteVideoRef.current.play().catch(e => console.log('Play on connect:', e));
+          } else if (callType === 'voice' && remoteAudioRef.current) {
+            remoteAudioRef.current.play().catch(e => console.log('Play on connect:', e));
+          }
         } else if (peerConnection.connectionState === 'disconnected') {
           setCallStatus('Disconnected');
         } else if (peerConnection.connectionState === 'failed') {
-          setCallStatus('Connection Failed');
-          setTimeout(onEndCall, 2000);
+          console.error('❌❌ Connection FAILED - likely firewall/NAT issue on same WiFi');
+          setCallStatus('Connection Failed - Try different WiFi');
+          setTimeout(onEndCall, 3000);
         }
       };
 
@@ -439,6 +446,14 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
                 console.log('📹 Remote video metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
                 e.target.muted = false;
                 e.target.volume = 1.0;
+                // Force play with user interaction
+                const playPromise = e.target.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch(err => {
+                    console.error('❌ Remote video autoplay blocked:', err);
+                    console.log('👆 Click anywhere to enable audio/video');
+                  });
+                }
               }}
               onPlay={() => {
                 console.log('▶️ Remote video PLAYING');
@@ -472,6 +487,14 @@ const VideoCall = ({ friend, user, onEndCall, callType, isIncoming = false, peer
                 console.log('🔊 Remote audio metadata loaded, tracks:', e.target.srcObject?.getTracks().map(t => t.kind));
                 e.target.muted = false;
                 e.target.volume = 1.0;
+                // Force play
+                const playPromise = e.target.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch(err => {
+                    console.error('❌ Remote audio autoplay blocked:', err);
+                    console.log('👆 Click anywhere to enable audio');
+                  });
+                }
               }}
               onPlay={() => {
                 console.log('▶️ Remote audio PLAYING');
