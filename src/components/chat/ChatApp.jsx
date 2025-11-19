@@ -72,7 +72,38 @@ const ChatApp = ({ user, onLogout }) => {
     // Handle message sent confirmation
     socket.on('message-sent', (data) => {
       console.log('✅ Message sent confirmation:', data);
-      // The optimistic update is already shown, no need to add again
+      if (data.success && data.message) {
+        const friendId = data.message.senderId === user.id ? data.message.receiverId : data.message.senderId;
+        
+        // Update the temporary message with the real message data from server
+        setActiveChats(prevChats => {
+          const newChats = new Map(prevChats);
+          
+          if (newChats.has(friendId)) {
+            const chatData = newChats.get(friendId);
+            
+            // Find and replace the temp message with the real one
+            const tempMsgIndex = chatData.messages.findIndex(msg => 
+              msg.tempId === data.message.tempId || msg.id === data.message.tempId
+            );
+            
+            if (tempMsgIndex !== -1) {
+              console.log('🔄 Replacing temp message with real message:', data.message.tempId, '->', data.message.id);
+              // Update the message with real ID and data from server
+              chatData.messages[tempMsgIndex] = {
+                ...chatData.messages[tempMsgIndex],
+                id: data.message.id,
+                tempId: data.message.tempId,
+                timestamp: data.message.timestamp,
+                status: data.message.status || 'sent',
+                isTemp: false
+              };
+            }
+          }
+          
+          return newChats;
+        });
+      }
     });
 
     // Handle errors

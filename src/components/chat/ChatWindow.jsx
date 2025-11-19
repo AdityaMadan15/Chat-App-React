@@ -21,6 +21,7 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [deletedMessages, setDeletedMessages] = useState(new Set());
   const [deletedForMeMessages, setDeletedForMeMessages] = useState(new Set());
+  const [tempIdToRealId, setTempIdToRealId] = useState(new Map());
 
   // Common emojis for quick access
   const commonEmojis = [
@@ -81,6 +82,14 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
     const handleMessageSent = (data) => {
       console.log('✅ Message sent confirmation:', data);
       if (data.success && data.message) {
+        // Store the mapping from tempId to real ID
+        setTempIdToRealId(prev => {
+          const newMap = new Map(prev);
+          newMap.set(data.message.tempId, data.message.id);
+          console.log('🗺️ Mapped tempId to realId:', data.message.tempId, '->', data.message.id);
+          return newMap;
+        });
+        
         // Remove from pending messages
         setPendingMessages(prev => {
           const newPending = new Set(prev);
@@ -477,9 +486,39 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
 
   const handleDeleteForEveryone = async (messageId) => {
     try {
+      console.log('🗑️ Attempting to delete message:', messageId);
+      
+      // First, check if this is a tempId and we have the real ID mapped
+      let actualMessageId = messageId;
+      if (messageId.startsWith('temp_')) {
+        const realId = tempIdToRealId.get(messageId);
+        if (realId) {
+          console.log('🗺️ Found real ID from mapping:', messageId, '->', realId);
+          actualMessageId = realId;
+        } else {
+          console.log('⏳ TempId not mapped yet, waiting for server...');
+          // Wait a bit for the server to process
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Check again after waiting
+          const realIdAfterWait = tempIdToRealId.get(messageId);
+          if (realIdAfterWait) {
+            console.log('✅ Got real ID after waiting:', realIdAfterWait);
+            actualMessageId = realIdAfterWait;
+          } else {
+            alert('Message is still being sent. Please wait a moment and try again.');
+            setContextMenu({ show: false, x: 0, y: 0, messageId: null });
+            return;
+          }
+        }
+      }
+      
       const loggedInUser = sessionStorage.getItem('loggedInUser');
       const userId = loggedInUser ? JSON.parse(loggedInUser).id : null;
-      const response = await fetch(`${API_URL}/api/messages/${messageId}/delete-for-everyone`, {
+      
+      console.log('🌐 Sending delete request for message ID:', actualMessageId);
+      
+      const response = await fetch(`${API_URL}/api/messages/${actualMessageId}/delete-for-everyone`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userId}`
@@ -487,16 +526,24 @@ const ChatWindow = ({ user, chatData, onSendMessage, onRemoveFriend }) => {
       });
 
       const data = await response.json();
+      
       if (response.ok) {
-        // Update UI immediately
-        setDeletedMessages(prev => new Set(prev).add(messageId));
+        console.log('✅ Delete successful');
+        // Update UI immediately - mark both the real ID and original messageId as deleted
+        setDeletedMessages(prev => {
+          const newSet = new Set(prev);
+          newSet.add(actualMessageId);
+          newSet.add(messageId); // Also add the original ID (might be tempId)
+          return newSet;
+        });
         setContextMenu({ show: false, x: 0, y: 0, messageId: null });
       } else {
+        console.error('❌ Delete failed:', data.message);
         alert(data.message || 'Cannot delete this message');
         setContextMenu({ show: false, x: 0, y: 0, messageId: null });
       }
     } catch (error) {
-      console.error('Error deleting message for everyone:', error);
+      console.error('❌ Error deleting message for everyone:', error);
       alert('Failed to delete message');
       setContextMenu({ show: false, x: 0, y: 0, messageId: null });
     }
