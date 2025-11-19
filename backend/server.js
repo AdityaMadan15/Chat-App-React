@@ -97,6 +97,10 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/block', blockRoutes);
 
+// Serve static files from React build
+const buildPath = path.join(__dirname, '..', 'build');
+app.use(express.static(buildPath));
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -105,6 +109,13 @@ app.get('/api/health', (req, res) => {
     users: users.size,
     online: onlineUsers.size
   });
+});
+
+// Serve React app for all non-API routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  }
 });
 
 // Socket.io
