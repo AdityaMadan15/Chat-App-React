@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import UserSchema from '../models/UserSchema.js';
 import MessageSchema from '../models/MessageSchema.js';
 import FriendSchema from '../models/FriendSchema.js';
