@@ -20,6 +20,7 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
   
   // Update currentUser when user prop changes
   useEffect(() => {
+    console.log('👤 ChatApp user prop changed:', user.username, 'avatarUrl:', user.avatarUrl);
     setCurrentUser(user);
   }, [user]);
   

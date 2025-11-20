@@ -191,6 +191,7 @@ const Sidebar = ({
   };
 
   const getProfileImage = (userData) => {
+    console.log('🖼️ getProfileImage called for:', userData.username, 'avatarUrl:', userData.avatarUrl);
     if (userData.avatarUrl && userData.avatarUrl.startsWith('data:image/')) {
       return userData.avatarUrl;
     }
