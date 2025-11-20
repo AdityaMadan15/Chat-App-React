@@ -106,8 +106,21 @@ export const UserOps = {
     async updateAvatar(userId, avatarUrl) {
         console.log('🔧 updateAvatar called with userId:', userId);
         console.log('🔧 avatarUrl length:', avatarUrl ? avatarUrl.length : 'UNDEFINED');
-        const result = await UserSchema.findByIdAndUpdate(userId, { avatarUrl }, { new: true });
-        console.log('🔧 Update result avatarUrl:', result.avatarUrl ? 'SET (length: ' + result.avatarUrl.length + ')' : 'UNDEFINED');
+        
+        const result = await UserSchema.findByIdAndUpdate(
+            userId, 
+            { avatarUrl: avatarUrl }, 
+            { new: true, runValidators: false }
+        );
+        
+        console.log('🔧 Update result:', result ? 'User found' : 'User NOT found');
+        console.log('🔧 Update result username:', result?.username);
+        console.log('🔧 Update result avatarUrl:', result?.avatarUrl ? 'SET (length: ' + result.avatarUrl.length + ')' : 'UNDEFINED');
+        
+        // Double-check by re-fetching
+        const verified = await UserSchema.findById(userId);
+        console.log('🔍 Verified from DB - avatarUrl:', verified?.avatarUrl ? 'SET (length: ' + verified.avatarUrl.length + ')' : 'UNDEFINED');
+        
         return result;
     },
     
