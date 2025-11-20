@@ -142,6 +142,8 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
             />
             <small style={{ color: '#666', fontSize: '12px' }}>Email cannot be changed</small>
           </div>
+
+          
           
           <div className="form-group">
             <label htmlFor="editBio">Bio</label>

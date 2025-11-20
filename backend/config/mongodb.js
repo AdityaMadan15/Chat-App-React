@@ -71,6 +71,26 @@ export const UserOps = {
         return await UserSchema.find({
             username: { $regex: query, $options: 'i' }
         }).limit(10);
+    },
+    
+    async updateOnlineStatus(userId, isOnline, socketId = null) {
+        const updates = { isOnline };
+        if (!isOnline) {
+            updates.lastSeen = new Date();
+        }
+        if (socketId) {
+            updates.socketId = socketId;
+        }
+        return await UserSchema.findByIdAndUpdate(userId, updates, { new: true });
+    },
+    
+    async findByUsernameOrEmail(username, email) {
+        return await UserSchema.findOne({
+            $or: [
+                { username },
+                { email: email?.toLowerCase() }
+            ]
+        });
     }
 };
 
@@ -162,6 +182,14 @@ export const FriendOps = {
             $or: [{ userId }, { friendId: userId }],
             status: 'accepted'
         });
+    },
+    
+    async getUserFriends(userId) {
+        return await this.getAcceptedFriends(userId);
+    },
+    
+    async getPendingRequests(userId) {
+        return await this.findPendingRequests(userId);
     }
 };
 
