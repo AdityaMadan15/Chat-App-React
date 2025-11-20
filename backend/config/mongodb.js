@@ -146,6 +146,10 @@ export const UserOps = {
             { $pull: { blockedUsers: unblockedUserId } },
             { new: true }
         );
+    },
+    
+    async count() {
+        return await UserSchema.countDocuments();
     }
 };
 
@@ -203,6 +207,14 @@ export const MessageOps = {
         return await MessageSchema.findByIdAndUpdate(
             messageId,
             { isRead: true, status: 'read', readAt: new Date() },
+            { new: true }
+        );
+    },
+    
+    async markAsDelivered(messageId) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { status: 'delivered', deliveredAt: new Date() },
             { new: true }
         );
     },

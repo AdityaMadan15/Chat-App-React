@@ -29,13 +29,8 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
       const data = await response.json();
       
       if (data.success) {
-        // Update local storage
-        const updatedUser = { 
-          ...user, 
-          username: formData.username, 
-          bio: formData.bio,
-          avatarUrl: profileImage 
-        };
+        // Update local storage with returned user data from server
+        const updatedUser = data.user;
         sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
         
         // Close modal and notify parent of update
@@ -47,6 +42,7 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
     }
   };
 
@@ -73,14 +69,21 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
         
         if (data.success) {
           console.log('✅ Profile picture saved to backend');
-          // Update local storage
-          const updatedUser = { ...user, avatarUrl: imageData };
+          // Update local storage with returned user data from server
+          const updatedUser = data.user;
           sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
+          
+          // Notify parent component
+          if (onProfileUpdate) {
+            onProfileUpdate(updatedUser);
+          }
         } else {
           console.error('Failed to save profile picture:', data.message);
+          alert('Failed to save profile picture: ' + data.message);
         }
       } catch (error) {
         console.error('Error saving profile picture:', error);
+        alert('Error saving profile picture. Please try again.');
       }
     };
     reader.readAsDataURL(file);
@@ -143,7 +146,7 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
             <small style={{ color: '#666', fontSize: '12px' }}>Email cannot be changed</small>
           </div>
 
-          
+          old chats are visible now 
           
           <div className="form-group">
             <label htmlFor="editBio">Bio</label>

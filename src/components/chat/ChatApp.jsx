@@ -7,7 +7,7 @@ import API_URL from '../../config';
 import SettingsModal from '../modals/SettingsModal.jsx';
 import '../../styles/ChatApp.css';
 
-const ChatApp = ({ user, onLogout }) => {
+const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
   const { socket } = useSocket();
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
@@ -59,6 +59,12 @@ const ChatApp = ({ user, onLogout }) => {
     socket.on('friend-privacy-changed', (data) => {
       console.log('🔒 Friend privacy settings changed:', data);
       updateFriendPrivacy(data.userId, data.privacy, data.isOnline, data.lastSeen);
+    });
+
+    // Handle friend profile updates in real-time
+    socket.on('friend-profile-updated', (data) => {
+      console.log('👤 Friend profile updated:', data);
+      updateFriendProfile(data.userId, data.username, data.avatarUrl, data.bio);
     });
 
     // Handle typing indicators
@@ -153,6 +159,7 @@ const ChatApp = ({ user, onLogout }) => {
       socket.off('friend-request-received');
       socket.off('friend-status-changed');
       socket.off('friend-privacy-changed');
+      socket.off('friend-profile-updated');
       socket.off('user-typing');
       socket.off('message-sent');
       socket.off('message-deleted-everyone');
@@ -504,6 +511,40 @@ const ChatApp = ({ user, onLogout }) => {
     );
   };
 
+  const updateFriendProfile = (friendId, username, avatarUrl, bio) => {
+    console.log('🔄 Updating friend profile in real-time:', friendId, username, avatarUrl);
+    
+    // Update in active chats
+    setActiveChats(prevChats => {
+      const newChats = new Map(prevChats);
+      if (newChats.has(friendId)) {
+        const chatData = newChats.get(friendId);
+        chatData.friend.username = username;
+        chatData.friend.avatarUrl = avatarUrl;
+        chatData.friend.bio = bio;
+      }
+      return newChats;
+    });
+    
+    // Update in friends list
+    setFriends(prevFriends => 
+      prevFriends.map(friendItem => {
+        if (friendItem.friend && friendItem.friend.id === friendId) {
+          return {
+            ...friendItem,
+            friend: {
+              ...friendItem.friend,
+              username,
+              avatarUrl,
+              bio
+            }
+          };
+        }
+        return friendItem;
+      })
+    );
+  };
+
   const showTypingIndicator = (friendId, show) => {
     setActiveChats(prevChats => {
       const newChats = new Map(prevChats);
@@ -617,6 +658,10 @@ const ChatApp = ({ user, onLogout }) => {
           onClose={() => setShowSettings(false)}
           onLogout={onLogout}
           onProfileUpdate={(updatedUser) => {
+            // Update user in parent App.jsx
+            if (onProfileUpdate) {
+              onProfileUpdate(updatedUser);
+            }
             // Reload friends to reflect updated profile
             loadFriends();
             // Trigger UI refresh

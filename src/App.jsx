@@ -116,6 +116,12 @@ function App() {
     }
   };
 
+  const handleProfileUpdate = (updatedUser) => {
+    console.log('👤 Updating current user profile in App.jsx');
+    setUser(updatedUser);
+    sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -133,7 +139,7 @@ function App() {
         <Login onLogin={handleLogin} />
       ) : (
         <SocketProvider user={user}>
-          <ChatApp user={user} onLogout={handleLogout} />
+          <ChatApp user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />
         </SocketProvider>
       )}
     </div>

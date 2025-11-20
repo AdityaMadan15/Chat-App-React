@@ -124,6 +124,22 @@ router.put('/profile', authenticateUser, async (req, res) => {
     // Update profile
     const updatedUser = await UserOps.updateProfile(userId, { username, bio });
     
+    // Broadcast profile update to all friends via socket
+    const io = req.app.get('io');
+    const friends = await FriendOps.getUserFriends(userId);
+    
+    for (const friendship of friends) {
+      const friendUser = await UserOps.findById(friendship.friendId);
+      if (friendUser && friendUser.socketId) {
+        io.to(friendUser.socketId).emit('friend-profile-updated', {
+          userId: userId,
+          username: updatedUser.username,
+          avatarUrl: updatedUser.avatarUrl,
+          bio: updatedUser.bio
+        });
+      }
+    }
+    
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -175,6 +191,22 @@ router.post('/upload-avatar', authenticateUser, async (req, res) => {
     const updatedUser = await UserOps.updateAvatar(userId, avatarData);
 
     console.log('✅ Profile picture updated for:', updatedUser.username);
+
+    // Broadcast profile update to all friends via socket
+    const io = req.app.get('io');
+    const friends = await FriendOps.getUserFriends(userId);
+    
+    for (const friendship of friends) {
+      const friendUser = await UserOps.findById(friendship.friendId);
+      if (friendUser && friendUser.socketId) {
+        io.to(friendUser.socketId).emit('friend-profile-updated', {
+          userId: userId,
+          username: updatedUser.username,
+          avatarUrl: updatedUser.avatarUrl,
+          bio: updatedUser.bio
+        });
+      }
+    }
 
     res.json({
       success: true,
