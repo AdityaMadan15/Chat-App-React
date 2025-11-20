@@ -9,6 +9,14 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
     bio: user.bio || 'Hey there! I\'m using ChatApp'
   });
   const [profileImage, setProfileImage] = useState(user.avatarUrl || '');
+  
+  // Update profile image when user prop changes
+  React.useEffect(() => {
+    console.log('👤 EditProfileModal user avatarUrl:', user.avatarUrl);
+    if (user.avatarUrl) {
+      setProfileImage(user.avatarUrl);
+    }
+  }, [user.avatarUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,8 +108,11 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
           <div className="profile-image-container">
             <img 
               id="editProfileImage" 
-              src={profileImage || `/uploads/avatars/default-${user.username.charAt(0).toUpperCase()}.png`} 
+              src={profileImage || `https://ui-avatars.com/api/?name=${user.username}&background=6366f1&color=fff`} 
               alt="Profile" 
+              onError={(e) => {
+                e.target.src = `https://ui-avatars.com/api/?name=${user.username}&background=6366f1&color=fff`;
+              }}
             />
             <button 
               className="upload-btn large" 

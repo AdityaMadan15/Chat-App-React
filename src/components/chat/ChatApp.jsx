@@ -16,6 +16,12 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentUser, setCurrentUser] = useState(user);
+  
+  // Update currentUser when user prop changes
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
   
 
   // Load initial data
@@ -622,7 +628,7 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
   return (
     <div className="chat-container">
       <Sidebar
-        user={user}
+        user={currentUser}
         friends={friends}
         friendRequests={friendRequests}
         onOpenChat={openChat}
@@ -634,7 +640,7 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
       />
       
       <ChatArea
-        user={user}
+        user={currentUser}
         activeChats={activeChats}
         currentChatId={currentChatId}
         onSwitchChat={setCurrentChatId}
@@ -645,7 +651,7 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
 
       {showAddFriend && (
         <AddFriendModal
-          user={user}
+          user={currentUser}
           friends={friends}
           onClose={() => setShowAddFriend(false)}
           onFriendRequestSent={loadFriendRequests}
@@ -654,10 +660,12 @@ const ChatApp = ({ user, onLogout, onProfileUpdate }) => {
 
       {showSettings && (
         <SettingsModal
-          user={user}
+          user={currentUser}
           onClose={() => setShowSettings(false)}
           onLogout={onLogout}
           onProfileUpdate={(updatedUser) => {
+            // Update local state immediately
+            setCurrentUser(updatedUser);
             // Update user in parent App.jsx
             if (onProfileUpdate) {
               onProfileUpdate(updatedUser);
