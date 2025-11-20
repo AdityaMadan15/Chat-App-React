@@ -207,3 +207,5 @@ export function initBlockRoutes() {
     // No longer needed but keeping for backward compatibility
     return;
 }
+
+export default router;
