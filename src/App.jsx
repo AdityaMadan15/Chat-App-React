@@ -118,6 +118,8 @@ function App() {
 
   const handleProfileUpdate = (updatedUser) => {
     console.log('👤 Updating current user profile in App.jsx');
+    console.log('📝 Updated user object:', updatedUser);
+    console.log('📝 Updated avatarUrl:', updatedUser.avatarUrl);
     setUser(updatedUser);
     sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
   };

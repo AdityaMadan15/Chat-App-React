@@ -57,12 +57,16 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
  const handleProfilePictureChange = (event) => {
   const file = event.target.files[0];
   if (file) {
+    console.log('📸 File selected:', file.name, file.type, file.size);
+    
     const reader = new FileReader();
     reader.onload = async function(e) {
       const imageData = e.target.result;
+      console.log('📸 Image data loaded, length:', imageData.length);
       setProfileImage(imageData);
       
       try {
+        console.log('📤 Uploading to backend...');
         // Save to backend
         const response = await fetch(`${API_URL}/api/users/upload-avatar`, {
           method: 'POST',
@@ -74,17 +78,24 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
         });
         
         const data = await response.json();
+        console.log('📥 Upload response:', data);
+        console.log('📥 Returned user object:', data.user);
+        console.log('📥 Returned avatarUrl:', data.user?.avatarUrl);
         
         if (data.success) {
           console.log('✅ Profile picture saved to backend');
           // Update local storage with returned user data from server
           const updatedUser = data.user;
+          console.log('💾 Saving to sessionStorage:', updatedUser);
           sessionStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
           
-          // Notify parent component
+          // Notify parent component immediately
           if (onProfileUpdate) {
+            console.log('🔔 Calling onProfileUpdate with:', updatedUser);
             onProfileUpdate(updatedUser);
           }
+          
+          alert('Profile picture updated successfully! Close this modal to see changes.');
         } else {
           console.error('Failed to save profile picture:', data.message);
           alert('Failed to save profile picture: ' + data.message);
@@ -93,6 +104,10 @@ const EditProfileModal = ({ user, onClose, onProfileUpdate }) => {
         console.error('Error saving profile picture:', error);
         alert('Error saving profile picture. Please try again.');
       }
+    };
+    reader.onerror = (error) => {
+      console.error('❌ FileReader error:', error);
+      alert('Error reading file. Please try again.');
     };
     reader.readAsDataURL(file);
   }
