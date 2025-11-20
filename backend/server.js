@@ -41,7 +41,7 @@ console.log('✅ MongoDB connected successfully');
 const onlineUsers = new Map();
 
 // Import routes
-let authRoutes, userRoutes, friendRoutes, messageRoutes, settingsRoutes, blockRoutes;
+let authRoutes, userRoutes, friendRoutes, messageRoutes, settingsRoutes, blockRoutes, migrateRoutes;
 
 try {
   authRoutes = (await import('./routes/auth.js')).default;
@@ -49,6 +49,7 @@ try {
   friendRoutes = (await import('./routes/friends.js')).default;
   messageRoutes = (await import('./routes/messages.js')).default;
   settingsRoutes = (await import('./routes/settings.js')).default;
+  migrateRoutes = (await import('./routes/migrate.js')).default;
   
   // Import and initialize block routes
   const blockModule = await import('./routes/block.js');
@@ -90,6 +91,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/block', blockRoutes);
+app.use('/api/migrate', migrateRoutes);
 
 // Serve static files from React build
 const buildPath = path.join(__dirname, '..', 'build');
