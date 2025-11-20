@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt';
 import UserSchema from '../models/UserSchema.js';
 import MessageSchema from '../models/MessageSchema.js';
 import FriendSchema from '../models/FriendSchema.js';
-import bcrypt from 'bcryptjs';
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp';
@@ -17,42 +16,16 @@ export async function connectDB() {
         await mongoose.connect(MONGODB_URI);
         console.log('✅ Connected to MongoDB');
         
-        // Create default users if database is empty
+        // Check user count
         const userCount = await UserSchema.countDocuments();
+        console.log(`📊 Database has ${userCount} users`);
+        
         if (userCount === 0) {
-            await createDefaultUsers();
+            console.log('⚠️ Database is empty! Please run: node backend/import-data.js');
         }
     } catch (error) {
         console.error('❌ MongoDB connection error:', error);
         process.exit(1);
-    }
-}
-
-// Create default users
-async function createDefaultUsers() {
-    try {
-        console.log('👥 Creating default users...');
-        
-        const user1 = new UserSchema({
-            username: 'Ani',
-            email: 'ani@example.com',
-            passwordHash: await bcrypt.hash('password123', 10),
-            status: 'Hey there! I am using ChatApp'
-        });
-        
-        const user2 = new UserSchema({
-            username: 'Maddy',
-            email: 'maddy@example.com',
-            passwordHash: await bcrypt.hash('password123', 10),
-            status: 'Available to chat!'
-        });
-        
-        await user1.save();
-        await user2.save();
-        
-        console.log('✅ Created default users: Ani & Maddy (password: password123)');
-    } catch (error) {
-        console.error('❌ Error creating default users:', error);
     }
 }
 
