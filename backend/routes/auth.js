@@ -125,6 +125,53 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// MIGRATION HELPER - Import old users from JSON (one-time use)
+router.post('/migrate-old-users', async (req, res) => {
+  try {
+    // Old user data from JSON files
+    const oldUsers = [
+      {
+        username: "Ani",
+        email: "ani@example.com",
+        password: "password123" // Reset to simple password
+      },
+      {
+        username: "Maddy",
+        email: "maddy@example.com",
+        password: "password123"
+      }
+    ];
+
+    const results = [];
+    
+    for (const oldUser of oldUsers) {
+      // Check if already exists
+      const existing = await UserOps.findByUsername(oldUser.username);
+      if (existing) {
+        results.push({ username: oldUser.username, status: 'already exists' });
+        continue;
+      }
+      
+      // Create with new MongoDB ID
+      const user = await UserOps.create(oldUser);
+      results.push({ 
+        username: oldUser.username, 
+        status: 'migrated',
+        newId: user._id.toString() 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Migration completed',
+      results
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // [Keep all your existing routes below - they should work fine]
 // Search users, get profile, update profile, etc.
 export default router;
