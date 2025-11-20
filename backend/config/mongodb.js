@@ -194,7 +194,8 @@ export const MessageOps = {
         return messages.map(m => m.lastMessage);
     },
     
-    async getConversation(conversationId) {
+    async getConversation(userId1, userId2) {
+        const conversationId = [userId1, userId2].sort().join('-');
         return await this.findByConversation(conversationId);
     },
     

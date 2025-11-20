@@ -40,8 +40,22 @@ router.get('/conversation/:friendId', authenticateUser, async (req, res) => {
     const conversationMessages = await MessageOps.getConversation(currentUserId, friendId);
 
     console.log('🔍 CONVERSATION DATA:', {
-        messagesCount: conversationMessages.length
+        messagesCount: conversationMessages.length,
+        expectedConversationId: [currentUserId, friendId].sort().join('-')
     });
+    
+    // Debug: Check what messages exist in DB
+    const MessageSchema = (await import('../models/MessageSchema.js')).default;
+    const allMessages = await MessageSchema.find({}).limit(10);
+    console.log(`📊 Total messages in DB: ${await MessageSchema.countDocuments()}`);
+    if (allMessages.length > 0) {
+      console.log('📝 Sample messages:', allMessages.map(m => ({
+        conversationId: m.conversationId,
+        senderId: m.senderId.toString(),
+        receiverId: m.receiverId.toString(),
+        content: m.content.substring(0, 30)
+      })));
+    }
 
     // Mark messages as read
     for (const msg of conversationMessages) {

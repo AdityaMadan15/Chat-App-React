@@ -182,8 +182,12 @@ io.on('connection', async (socket) => {
       return;
     }
 
+    // Create sorted conversation ID (same format as import script)
+    const conversationId = [senderId, receiverId].sort().join('-');
+
     // Create and save message to MongoDB
     const message = await MessageOps.create({
+      conversationId: conversationId,
       senderId: senderId,
       receiverId: receiverId,
       content: content,
