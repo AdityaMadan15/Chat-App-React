@@ -137,6 +137,10 @@ export const MessageOps = {
         ]);
         
         return messages.map(m => m.lastMessage);
+    },
+    
+    async getConversation(conversationId) {
+        return await this.findByConversation(conversationId);
     }
 };
 
@@ -190,6 +194,11 @@ export const FriendOps = {
     
     async getPendingRequests(userId) {
         return await this.findPendingRequests(userId);
+    },
+    
+    async areFriends(userId1, userId2) {
+        const friendship = await this.findByUsers(userId1, userId2);
+        return friendship && friendship.status === 'accepted';
     }
 };
 
