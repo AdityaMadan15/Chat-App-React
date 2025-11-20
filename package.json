@@ -1,6 +1,7 @@
 {
   "name": "chat-app-react",
   "version": "1.0.0",
+  "type": "module",
   "description": "Real-time chat application with React frontend and Node.js backend",
   "scripts": {
     "start": "react-scripts start",

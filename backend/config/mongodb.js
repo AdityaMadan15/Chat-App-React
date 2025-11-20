@@ -13,10 +13,7 @@ export const onlineUsers = new Map();
 // Connect to MongoDB
 export async function connectDB() {
     try {
-        await mongoose.connect(MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
+        await mongoose.connect(MONGODB_URI);
         console.log('✅ Connected to MongoDB');
         
         // Create default users if database is empty
