@@ -104,7 +104,11 @@ export const UserOps = {
     },
     
     async updateAvatar(userId, avatarUrl) {
-        return await UserSchema.findByIdAndUpdate(userId, { avatarUrl }, { new: true });
+        console.log('🔧 updateAvatar called with userId:', userId);
+        console.log('🔧 avatarUrl length:', avatarUrl ? avatarUrl.length : 'UNDEFINED');
+        const result = await UserSchema.findByIdAndUpdate(userId, { avatarUrl }, { new: true });
+        console.log('🔧 Update result avatarUrl:', result.avatarUrl ? 'SET (length: ' + result.avatarUrl.length + ')' : 'UNDEFINED');
+        return result;
     },
     
     async updatePassword(userId, newPassword) {

@@ -191,6 +191,8 @@ router.post('/upload-avatar', authenticateUser, async (req, res) => {
     const updatedUser = await UserOps.updateAvatar(userId, avatarData);
 
     console.log('✅ Profile picture updated for:', updatedUser.username);
+    console.log('📸 Updated user avatarUrl:', updatedUser.avatarUrl ? 'SET (length: ' + updatedUser.avatarUrl.length + ')' : 'UNDEFINED');
+    console.log('📸 Original avatarData length:', avatarData.length);
 
     // Broadcast profile update to all friends via socket
     const io = req.app.get('io');
