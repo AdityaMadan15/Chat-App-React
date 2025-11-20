@@ -91,6 +91,61 @@ export const UserOps = {
                 { email: email?.toLowerCase() }
             ]
         });
+    },
+    
+    async searchByUsername(query, limit = 20) {
+        return await UserSchema.find({
+            username: { $regex: query, $options: 'i' }
+        }).limit(limit);
+    },
+    
+    async updateProfile(userId, updates) {
+        return await UserSchema.findByIdAndUpdate(userId, updates, { new: true });
+    },
+    
+    async updateAvatar(userId, avatarUrl) {
+        return await UserSchema.findByIdAndUpdate(userId, { avatarUrl }, { new: true });
+    },
+    
+    async updatePassword(userId, newPassword) {
+        const user = await UserSchema.findById(userId);
+        if (user) {
+            await user.hashPassword(newPassword);
+            await user.save();
+        }
+        return user;
+    },
+    
+    async updateNotificationSettings(userId, settings) {
+        return await UserSchema.findByIdAndUpdate(
+            userId,
+            { $set: { 'settings.notifications': settings } },
+            { new: true }
+        );
+    },
+    
+    async updatePrivacySettings(userId, settings) {
+        return await UserSchema.findByIdAndUpdate(
+            userId,
+            { $set: { 'settings.privacy': settings } },
+            { new: true }
+        );
+    },
+    
+    async blockUser(userId, blockedUserId) {
+        return await UserSchema.findByIdAndUpdate(
+            userId,
+            { $addToSet: { blockedUsers: blockedUserId } },
+            { new: true }
+        );
+    },
+    
+    async unblockUser(userId, unblockedUserId) {
+        return await UserSchema.findByIdAndUpdate(
+            userId,
+            { $pull: { blockedUsers: unblockedUserId } },
+            { new: true }
+        );
     }
 };
 
@@ -141,6 +196,46 @@ export const MessageOps = {
     
     async getConversation(conversationId) {
         return await this.findByConversation(conversationId);
+    },
+    
+    async markAsRead(messageId, userId) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { isRead: true, status: 'read', readAt: new Date() },
+            { new: true }
+        );
+    },
+    
+    async addReaction(messageId, userId, emoji) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { $set: { [`reactions.${userId}`]: emoji } },
+            { new: true }
+        );
+    },
+    
+    async removeReaction(messageId, userId) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { $unset: { [`reactions.${userId}`]: "" } },
+            { new: true }
+        );
+    },
+    
+    async deleteForMe(messageId, userId) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { $addToSet: { deletedFor: userId } },
+            { new: true }
+        );
+    },
+    
+    async deleteForEveryone(messageId) {
+        return await MessageSchema.findByIdAndUpdate(
+            messageId,
+            { isDeletedForEveryone: true, deletedAt: new Date() },
+            { new: true }
+        );
     }
 };
 
@@ -199,6 +294,22 @@ export const FriendOps = {
     async areFriends(userId1, userId2) {
         const friendship = await this.findByUsers(userId1, userId2);
         return friendship && friendship.status === 'accepted';
+    },
+    
+    async findFriendship(userId1, userId2) {
+        return await this.findByUsers(userId1, userId2);
+    },
+    
+    async findById(id) {
+        return await FriendSchema.findById(id);
+    },
+    
+    async accept(requestId) {
+        return await FriendSchema.findByIdAndUpdate(
+            requestId,
+            { status: 'accepted', acceptedAt: new Date() },
+            { new: true }
+        );
     }
 };
 
