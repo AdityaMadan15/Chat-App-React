@@ -12,6 +12,15 @@ const authenticateUser = async (req, res, next) => {
             const token = authHeader.substring(7); // Remove 'Bearer ' prefix
             console.log('🔐 Extracted token (userId):', token);
             
+            // Check for old UUID format (pre-MongoDB migration)
+            if (token.includes('-')) {
+                console.log('⚠️ Old UUID format detected, rejecting:', token);
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session expired. Please login again.'
+                });
+            }
+            
             // Token is the userId in this simple implementation
             const user = await UserOps.findById(token);
             console.log('🔐 Found user:', user ? user.username : 'NOT FOUND');
@@ -35,6 +44,15 @@ const authenticateUser = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: 'Authentication required'
+            });
+        }
+        
+        // Check for old UUID format
+        if (userId.includes('-')) {
+            console.log('⚠️ Old UUID format detected in user-id, rejecting:', userId);
+            return res.status(401).json({
+                success: false,
+                message: 'Session expired. Please login again.'
             });
         }
 

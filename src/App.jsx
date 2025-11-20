@@ -15,6 +15,16 @@ function App() {
       if (loggedInUser) {
         const userData = JSON.parse(loggedInUser);
         
+        // Check if this is an old UUID-based user ID (pre-MongoDB migration)
+        // MongoDB ObjectIDs are 24 hex characters, UUIDs are 36 chars with dashes
+        if (userData.id && userData.id.includes('-')) {
+          console.log('⚠️ Detected old user session. Clearing and requiring re-login...');
+          sessionStorage.removeItem('loggedInUser');
+          localStorage.clear();
+          setLoading(false);
+          return;
+        }
+        
         // Verify user still exists in backend and get fresh data
         try {
           const response = await fetch(`${API_URL}/api/users/${userData.id}`, {

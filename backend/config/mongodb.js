@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 import UserSchema from '../models/UserSchema.js';
 import MessageSchema from '../models/MessageSchema.js';
 import FriendSchema from '../models/FriendSchema.js';
@@ -58,6 +59,11 @@ async function createDefaultUsers() {
 // User operations
 export const UserOps = {
     async findById(id) {
+        // Validate ObjectId format to prevent crashes
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            console.log('⚠️ Invalid ObjectId format:', id);
+            return null;
+        }
         return await UserSchema.findById(id);
     },
     
@@ -78,6 +84,9 @@ export const UserOps = {
     },
     
     async update(id, updates) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return null;
+        }
         return await UserSchema.findByIdAndUpdate(id, updates, { new: true });
     },
     
