@@ -1,5 +1,5 @@
 import express from 'express';
-import { users, friends, saveData } from '../config/database.js';
+import { UserOps, FriendOps } from '../config/mongodb.js';
 import { authenticateUser, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -17,7 +17,7 @@ function findUserByUsername(username) {
 }
 
 // Search users by username
-router.get('/search', optionalAuth, (req, res) => {
+router.get('/search', optionalAuth, async (req, res) => {
   try {
     const { q } = req.query;
     
@@ -29,21 +29,22 @@ router.get('/search', optionalAuth, (req, res) => {
     }
 
     const searchTerm = q.toLowerCase().trim();
-    const results = [];
-
+    
     // Search through all users
-    for (let [id, user] of users) {
-      // Skip if it's the current user
-      if (req.user && user.id === req.user.id) continue;
-
-      // Check if username matches search term
-      if (user.username.toLowerCase().includes(searchTerm)) {
-        results.push(user.toPublicJSON());
-      }
-
-      // Limit results
-      if (results.length >= 20) break;
-    }
+    const foundUsers = await UserOps.searchByUsername(searchTerm, 20);
+    
+    // Exclude current user from results
+    const results = foundUsers
+      .filter(user => !req.user || user._id.toString() !== req.user._id.toString())
+      .map(user => ({
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+        bio: user.bio
+      }));
 
     res.json({
       success: true,
@@ -60,10 +61,10 @@ router.get('/search', optionalAuth, (req, res) => {
 });
 
 // Get user profile by ID
-router.get('/:userId', optionalAuth, (req, res) => {
+router.get('/:userId', optionalAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = users.get(userId);
+    const user = await UserOps.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -75,18 +76,22 @@ router.get('/:userId', optionalAuth, (req, res) => {
     // Check if users are friends
     let isFriend = false;
     if (req.user) {
-      const friendRelation = Array.from(friends.values()).find(f => 
-        (f.userId === req.user.id && f.friendId === user.id && f.status === 'accepted') ||
-        (f.userId === user.id && f.friendId === req.user.id && f.status === 'accepted')
-      );
-      isFriend = !!friendRelation;
+      isFriend = await FriendOps.areFriends(req.user._id.toString(), userId);
     }
 
     res.json({
       success: true,
-      user: user.toPublicJSON(),
+      user: {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+        bio: user.bio
+      },
       isFriend,
-      canAddFriend: req.user && req.user.id !== user.id && !isFriend
+      canAddFriend: req.user && req.user._id.toString() !== user._id.toString() && !isFriend
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -98,46 +103,40 @@ router.get('/:userId', optionalAuth, (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', authenticateUser, (req, res) => {
+router.put('/profile', authenticateUser, async (req, res) => {
   try {
     const { username, bio } = req.body;
-    const user = req.user;
+    const userId = req.user._id.toString();
     
     // Validate username
-    if (username && username !== user.username) {
+    if (username && username !== req.user.username) {
       // Check if username is taken
-      let usernameExists = false;
-      for (let [id, existingUser] of users) {
-        if (existingUser.username === username && existingUser.id !== user.id) {
-          usernameExists = true;
-          break;
-        }
-      }
+      const existingUser = await UserOps.findByUsername(username);
       
-      if (usernameExists) {
+      if (existingUser && existingUser._id.toString() !== userId) {
         return res.status(400).json({
           success: false,
           message: 'Username already taken'
         });
       }
-      user.username = username;
     }
     
-    // Update bio
-    if (bio !== undefined) {
-      user.bio = bio;
-    }
-    
-    // Update last seen
-    user.lastSeen = new Date();
-
-    // Save data
-    saveData();
+    // Update profile
+    const updatedUser = await UserOps.updateProfile(userId, { username, bio });
     
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      user: user.toPublicJSON()
+      user: {
+        id: updatedUser._id.toString(),
+        username: updatedUser.username,
+        email: updatedUser.email,
+        avatarUrl: updatedUser.avatarUrl,
+        isOnline: updatedUser.isOnline,
+        lastSeen: updatedUser.lastSeen,
+        bio: updatedUser.bio,
+        settings: updatedUser.settings
+      }
     });
     
   } catch (error) {
@@ -150,12 +149,12 @@ router.put('/profile', authenticateUser, (req, res) => {
 });
 
 // Upload profile picture
-router.post('/upload-avatar', authenticateUser, (req, res) => {
+router.post('/upload-avatar', authenticateUser, async (req, res) => {
   try {
     const { avatarData } = req.body;
-    const user = req.user;
+    const userId = req.user._id.toString();
 
-    console.log('📸 Uploading profile picture for:', user.username);
+    console.log('📸 Uploading profile picture for:', req.user.username);
 
     if (!avatarData) {
       return res.status(400).json({
@@ -173,17 +172,23 @@ router.post('/upload-avatar', authenticateUser, (req, res) => {
     }
 
     // Update user's avatar URL
-    user.avatarUrl = avatarData;
+    const updatedUser = await UserOps.updateAvatar(userId, avatarData);
 
-    // Save data
-    saveData();
-
-    console.log('✅ Profile picture updated for:', user.username);
+    console.log('✅ Profile picture updated for:', updatedUser.username);
 
     res.json({
       success: true,
       message: 'Profile picture updated successfully',
-      user: user.toPublicJSON()
+      user: {
+        id: updatedUser._id.toString(),
+        username: updatedUser.username,
+        email: updatedUser.email,
+        avatarUrl: updatedUser.avatarUrl,
+        isOnline: updatedUser.isOnline,
+        lastSeen: updatedUser.lastSeen,
+        bio: updatedUser.bio,
+        settings: updatedUser.settings
+      }
     });
 
   } catch (error) {

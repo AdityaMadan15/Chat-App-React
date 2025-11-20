@@ -29,12 +29,16 @@ const io = new Server(server, {
 // Store io instance for use in routes
 app.set('io', io);
 
-// Import database with persistence
-const { users, friends, messages, friendRequests, onlineUsers, startAutoSave, saveData, loadData } = await import('./config/database.js');
+// Import MongoDB connection and operations
+const { connectDB, UserOps, MessageOps, FriendOps } = await import('./config/mongodb.js');
 
-// Ensure data is loaded on server start
-console.log('🔄 Loading existing data...');
-await loadData();
+// Connect to MongoDB
+console.log('🔄 Connecting to MongoDB...');
+await connectDB();
+console.log('✅ MongoDB connected successfully');
+
+// In-memory tracking for online users
+const onlineUsers = new Map();
 
 // Import routes
 let authRoutes, userRoutes, friendRoutes, messageRoutes, settingsRoutes, blockRoutes;
@@ -49,7 +53,7 @@ try {
   // Import and initialize block routes
   const blockModule = await import('./routes/block.js');
   blockRoutes = blockModule.default;
-  blockModule.initBlockRoutes({ users, saveData });
+  blockModule.initBlockRoutes({ UserOps });
   
   console.log('✅ All routes imported successfully');
 } catch (error) {
@@ -61,27 +65,16 @@ try {
 import { authenticateUser, authenticateSocket } from './middleware/auth.js';
 
 // Helper function to find user
-function findUser(identifier) {
+async function findUser(identifier) {
   if (!identifier) return null;
   
   // Try by ID first
-  const userById = users.get(identifier);
-  if (userById && userById.id) {
-    return userById;
-  }
+  const userById = await UserOps.findById(identifier);
+  if (userById) return userById;
   
   // Try by username
-  for (let [id, user] of users) {
-    if (user && user.username && user.username === identifier) {
-      return user;
-    }
-  }
-  
-  return null;
+  return await UserOps.findByUsername(identifier);
 }
-
-// Start auto-save functionality
-startAutoSave();
 
 // Middleware
 app.use(cors({
@@ -103,11 +96,12 @@ const buildPath = path.join(__dirname, '..', 'build');
 app.use(express.static(buildPath));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  const userCount = await UserOps.count();
   res.json({ 
     success: true, 
     message: 'Backend server is running!',
-    users: users.size,
+    users: userCount,
     online: onlineUsers.size
   });
 });
@@ -122,42 +116,36 @@ app.get('*', (req, res) => {
 // Socket.io
 io.use(authenticateSocket);
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log('🟢 User connected:', socket.userId, socket.username);
 
-  const user = findUser(socket.userId);
+  const user = await findUser(socket.userId);
   if (user) {
-    user.isOnline = true;
-    user.socketId = socket.id;
-    user.lastSeen = new Date();
-    onlineUsers.set(socket.id, user.id);
+    await UserOps.updateOnlineStatus(user._id, true, socket.id);
+    onlineUsers.set(socket.id, user._id.toString());
 
     // Broadcast online status to friends
-    const friendsList = Array.from(friends.values())
-      .filter(f => 
-        (f.userId === user.id || f.friendId === user.id) && 
-        f.status === 'accepted'
-      )
-      .map(f => f.userId === user.id ? f.friendId : f.userId);
+    const friendsList = await FriendOps.getUserFriends(user._id.toString());
 
-    friendsList.forEach(friendId => {
-      const friend = users.get(friendId);
+    for (const friendship of friendsList) {
+      const friendId = friendship.userId.toString() === user._id.toString() ? friendship.friendId.toString() : friendship.userId.toString();
+      const friend = await UserOps.findById(friendId);
       if (friend && friend.socketId) {
         const showOnline = !user.settings?.privacy || user.settings.privacy.onlineStatus !== false;
         io.to(friend.socketId).emit('friend-status-changed', {
-          userId: user.id,
+          userId: user._id.toString(),
           username: user.username,
           isOnline: showOnline ? true : false,
           lastSeen: user.lastSeen
         });
       }
-    });
+    }
   }
 
   socket.join(socket.userId);
 
   // Handle messages
-  socket.on('send-message', (data) => {
+  socket.on('send-message', async (data) => {
     const { receiverId, content, tempId } = data;
     const senderId = socket.userId;
 
@@ -167,8 +155,8 @@ io.on('connection', (socket) => {
       content: content
     });
 
-    const sender = findUser(senderId);
-    const receiver = findUser(receiverId);
+    const sender = await findUser(senderId);
+    const receiver = await findUser(receiverId);
     
     if (!receiver) {
       socket.emit('error', { message: 'User not found' });
@@ -185,49 +173,32 @@ io.on('connection', (socket) => {
     }
 
     // Check friendship
-    const isFriend = Array.from(friends.values()).some(f => 
-      (f.userId === senderId && f.friendId === receiverId && f.status === 'accepted') ||
-      (f.userId === receiverId && f.friendId === senderId && f.status === 'accepted')
-    );
+    const isFriend = await FriendOps.areFriends(senderId, receiverId);
 
     if (!isFriend) {
       socket.emit('error', { message: 'You can only message friends' });
       return;
     }
 
-    // Create message
-    const message = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    // Create and save message to MongoDB
+    const message = await MessageOps.create({
       senderId: senderId,
       receiverId: receiverId,
       content: content,
-      messageType: data.messageType || 'text',
-      timestamp: new Date(),
-      isRead: false,
-      status: 'sent',
-      deliveredAt: null,
-      readAt: null,
-      tempId: tempId
-    };
+      messageType: data.messageType || 'text'
+    });
 
-    // Store in conversation
-    const conversationId = [senderId, receiverId].sort().join('-');
-    if (!messages.has(conversationId)) {
-      messages.set(conversationId, []);
-    }
-    
-    const conversation = messages.get(conversationId);
-    conversation.push(message);
-
-    // Save data
-    saveData();
+    // Add tempId for client tracking
+    const messageObj = message.toObject();
+    messageObj.id = message._id.toString();
+    messageObj.tempId = tempId;
     
     console.log('✅ MESSAGE SAVED TO DATABASE');
 
     // Send confirmation to sender
     socket.emit('message-sent', {
       success: true,
-      message: message
+      message: messageObj
     });
 
     // Check if receiver allows notifications
@@ -237,19 +208,20 @@ io.on('connection', (socket) => {
     // Notify receiver
     if (receiver.isOnline && receiver.socketId && allowNotifications) {
       // Mark as delivered since receiver is online
-      message.status = 'delivered';
-      message.deliveredAt = new Date();
+      await MessageOps.markAsDelivered(message._id);
+      messageObj.status = 'delivered';
+      messageObj.deliveredAt = new Date();
       
       io.to(receiver.socketId).emit('new-message', {
-        message: message,
-        sender: sender.toPublicJSON()
+        message: messageObj,
+        sender: { id: sender._id.toString(), username: sender.username, avatarUrl: sender.avatarUrl }
       });
       
       // Notify sender about delivery
       socket.emit('message-delivered', {
-        messageId: message.id,
+        messageId: messageObj.id,
         tempId: tempId,
-        deliveredAt: message.deliveredAt
+        deliveredAt: messageObj.deliveredAt
       });
       
       console.log('📨 Message delivered to receiver:', receiver.username);
@@ -261,11 +233,11 @@ io.on('connection', (socket) => {
   });
 
   // Handle typing indicators - with privacy check
-  socket.on('typing-start', (data) => {
+  socket.on('typing-start', async (data) => {
     const { receiverId } = data;
     const senderId = socket.userId;
-    const sender = findUser(senderId);
-    const receiver = findUser(receiverId);
+    const sender = await findUser(senderId);
+    const receiver = await findUser(receiverId);
 
     if (!sender || !receiver) return;
 
@@ -281,11 +253,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('typing-stop', (data) => {
+  socket.on('typing-stop', async (data) => {
     const { receiverId } = data;
     const senderId = socket.userId;
-    const sender = findUser(senderId);
-    const receiver = findUser(receiverId);
+    const sender = await findUser(senderId);
+    const receiver = await findUser(receiverId);
 
     if (receiver && receiver.socketId) {
       io.to(receiver.socketId).emit('user-typing', {
@@ -296,11 +268,11 @@ io.on('connection', (socket) => {
   });
 
   // Handle message read receipts - with privacy check
-  socket.on('mark-as-read', (data) => {
+  socket.on('mark-as-read', async (data) => {
     const { messageIds, senderId } = data;
     const currentUserId = socket.userId;
-    const currentUser = findUser(currentUserId);
-    const sender = findUser(senderId);
+    const currentUser = await findUser(currentUserId);
+    const sender = await findUser(senderId);
 
     if (!currentUser || !sender) return;
 
@@ -309,19 +281,8 @@ io.on('connection', (socket) => {
 
     if (allowReadReceipts) {
       // Update message status in database
-      const conversationId = [currentUserId, senderId].sort().join('-');
-      const conversation = messages.get(conversationId);
-      
-      if (conversation) {
-        messageIds.forEach(msgId => {
-          const msg = conversation.find(m => m.id === msgId);
-          if (msg) {
-            msg.isRead = true;
-            msg.status = 'read';
-            msg.readAt = new Date();
-          }
-        });
-        saveData();
+      for (const msgId of messageIds) {
+        await MessageOps.markAsRead(msgId, currentUserId);
       }
       
       // Notify sender about read status
@@ -336,37 +297,30 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('🔴 User disconnected:', socket.userId, socket.username);
     
-    const user = findUser(socket.userId);
+    const user = await findUser(socket.userId);
     if (user) {
-      user.isOnline = false;
-      user.lastSeen = new Date();
+      await UserOps.updateOnlineStatus(user._id, false, null);
       onlineUsers.delete(socket.id);
 
       // Broadcast offline status to friends
-      const friendsList = Array.from(friends.values())
-        .filter(f => 
-          (f.userId === user.id || f.friendId === user.id) && 
-          f.status === 'accepted'
-        )
-        .map(f => f.userId === user.id ? f.friendId : f.userId);
+      const friendsList = await FriendOps.getUserFriends(user._id.toString());
 
-      friendsList.forEach(friendId => {
-        const friend = users.get(friendId);
+      for (const friendship of friendsList) {
+        const friendId = friendship.userId.toString() === user._id.toString() ? friendship.friendId.toString() : friendship.userId.toString();
+        const friend = await UserOps.findById(friendId);
         if (friend && friend.socketId) {
           const showLastSeen = !user.settings?.privacy || user.settings.privacy.lastSeen !== false;
           io.to(friend.socketId).emit('friend-status-changed', {
-            userId: user.id,
+            userId: user._id.toString(),
             username: user.username,
             isOnline: false,
             lastSeen: showLastSeen ? user.lastSeen : null
           });
         }
-      });
-
-      saveData();
+      }
     }
   });
 

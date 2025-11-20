@@ -1,21 +1,13 @@
 import express from 'express';
 import { authenticateUser } from '../middleware/auth.js';
+import { UserOps } from '../config/mongodb.js';
 
 const router = express.Router();
 
-// Get all routes need to import from database
-let users, saveData;
-
-// Initialize with database reference
-export function initBlockRoutes(db) {
-    users = db.users;
-    saveData = db.saveData;
-}
-
 // Block a user
-router.post('/block/:userId', authenticateUser, (req, res) => {
+router.post('/block/:userId', authenticateUser, async (req, res) => {
     try {
-        const currentUserId = req.userId;
+        const currentUserId = req.user._id.toString();
         const userIdToBlock = req.params.userId;
 
         if (currentUserId === userIdToBlock) {
@@ -25,8 +17,8 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
             });
         }
 
-        const currentUser = users.get(currentUserId);
-        const userToBlock = users.get(userIdToBlock);
+        const currentUser = await UserOps.findById(currentUserId);
+        const userToBlock = await UserOps.findById(userIdToBlock);
 
         if (!currentUser || !userToBlock) {
             return res.status(404).json({ 
@@ -35,13 +27,9 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
             });
         }
 
-        // Initialize blockedUsers if not exists
-        if (!currentUser.blockedUsers) {
-            currentUser.blockedUsers = [];
-        }
-
         // Check if already blocked
-        if (currentUser.blockedUsers.includes(userIdToBlock)) {
+        const blockedUsers = currentUser.blockedUsers || [];
+        if (blockedUsers.includes(userIdToBlock)) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'User already blocked' 
@@ -49,8 +37,7 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
         }
 
         // Block the user
-        currentUser.blockedUsers.push(userIdToBlock);
-        saveData();
+        await UserOps.blockUser(currentUserId, userIdToBlock);
 
         // Emit socket event to update UI immediately
         const io = req.app.get('io');
@@ -61,9 +48,8 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
             });
         }
         // Notify the blocked user if they're online
-        const blockedUser = users.get(userIdToBlock);
-        if (blockedUser && blockedUser.socketId) {
-            io.to(blockedUser.socketId).emit('blocked-by-user', {
+        if (userToBlock && userToBlock.socketId) {
+            io.to(userToBlock.socketId).emit('blocked-by-user', {
                 blockedByUserId: currentUserId,
                 timestamp: new Date()
             });
@@ -84,12 +70,12 @@ router.post('/block/:userId', authenticateUser, (req, res) => {
 });
 
 // Unblock a user
-router.post('/unblock/:userId', authenticateUser, (req, res) => {
+router.post('/unblock/:userId', authenticateUser, async (req, res) => {
     try {
-        const currentUserId = req.userId;
+        const currentUserId = req.user._id.toString();
         const userIdToUnblock = req.params.userId;
 
-        const currentUser = users.get(currentUserId);
+        const currentUser = await UserOps.findById(currentUserId);
 
         if (!currentUser) {
             return res.status(404).json({ 
@@ -98,14 +84,9 @@ router.post('/unblock/:userId', authenticateUser, (req, res) => {
             });
         }
 
-        // Initialize blockedUsers if not exists
-        if (!currentUser.blockedUsers) {
-            currentUser.blockedUsers = [];
-        }
-
         // Check if user is blocked
-        const index = currentUser.blockedUsers.indexOf(userIdToUnblock);
-        if (index === -1) {
+        const blockedUsers = currentUser.blockedUsers || [];
+        if (!blockedUsers.includes(userIdToUnblock)) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'User is not blocked' 
@@ -113,8 +94,7 @@ router.post('/unblock/:userId', authenticateUser, (req, res) => {
         }
 
         // Unblock the user
-        currentUser.blockedUsers.splice(index, 1);
-        saveData();
+        await UserOps.unblockUser(currentUserId, userIdToUnblock);
 
         // Emit socket event to update UI immediately
         const io = req.app.get('io');
@@ -125,7 +105,7 @@ router.post('/unblock/:userId', authenticateUser, (req, res) => {
             });
         }
         // Notify the unblocked user if they're online
-        const unblockedUser = users.get(userIdToUnblock);
+        const unblockedUser = await UserOps.findById(userIdToUnblock);
         if (unblockedUser && unblockedUser.socketId) {
             io.to(unblockedUser.socketId).emit('unblocked-by-user', {
                 unblockedByUserId: currentUserId,
@@ -148,10 +128,10 @@ router.post('/unblock/:userId', authenticateUser, (req, res) => {
 });
 
 // Get blocked users list
-router.get('/list', authenticateUser, (req, res) => {
+router.get('/list', authenticateUser, async (req, res) => {
     try {
-        const currentUserId = req.userId;
-        const currentUser = users.get(currentUserId);
+        const currentUserId = req.user._id.toString();
+        const currentUser = await UserOps.findById(currentUserId);
 
         if (!currentUser) {
             return res.status(404).json({ 
@@ -161,14 +141,18 @@ router.get('/list', authenticateUser, (req, res) => {
         }
 
         const blockedUserIds = currentUser.blockedUsers || [];
-        const blockedUsers = blockedUserIds
-            .map(id => users.get(id))
-            .filter(user => user)
-            .map(user => ({
-                id: user.id,
-                username: user.username,
-                avatarUrl: user.avatarUrl
-            }));
+        const blockedUsers = [];
+        
+        for (const id of blockedUserIds) {
+            const user = await UserOps.findById(id);
+            if (user) {
+                blockedUsers.push({
+                    id: user._id.toString(),
+                    username: user.username,
+                    avatarUrl: user.avatarUrl
+                });
+            }
+        }
 
         res.json({ 
             success: true, 
@@ -184,13 +168,13 @@ router.get('/list', authenticateUser, (req, res) => {
 });
 
 // Check if a user is blocked
-router.get('/check/:userId', authenticateUser, (req, res) => {
+router.get('/check/:userId', authenticateUser, async (req, res) => {
     try {
-        const currentUserId = req.userId;
+        const currentUserId = req.user._id.toString();
         const otherUserId = req.params.userId;
 
-        const currentUser = users.get(currentUserId);
-        const otherUser = users.get(otherUserId);
+        const currentUser = await UserOps.findById(currentUserId);
+        const otherUser = await UserOps.findById(otherUserId);
 
         if (!currentUser || !otherUser) {
             return res.status(404).json({ 
@@ -219,4 +203,7 @@ router.get('/check/:userId', authenticateUser, (req, res) => {
     }
 });
 
-export default router;
+export function initBlockRoutes() {
+    // No longer needed but keeping for backward compatibility
+    return;
+}

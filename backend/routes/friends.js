@@ -1,6 +1,5 @@
 import express from 'express';
-import { users, friends, saveData } from '../config/database.js';
-import Friend from '../models/Friend.js';
+import { UserOps, FriendOps } from '../config/mongodb.js';
 import { authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -18,10 +17,11 @@ function findUserByUsername(username) {
 }
 
 // Send friend request
-router.post('/request', authenticateUser, (req, res) => {
+router.post('/request', authenticateUser, async (req, res) => {
   try {
     const { friendUsername } = req.body;
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
 
     console.log('🔍 Sending friend request to:', friendUsername);
 
@@ -33,7 +33,7 @@ router.post('/request', authenticateUser, (req, res) => {
     }
 
     // Find friend user
-    const friendUser = findUserByUsername(friendUsername);
+    const friendUser = await UserOps.findByUsername(friendUsername);
     if (!friendUser) {
       return res.status(404).json({
         success: false,
@@ -41,8 +41,10 @@ router.post('/request', authenticateUser, (req, res) => {
       });
     }
 
+    const friendId = friendUser._id.toString();
+
     // Prevent self-adding
-    if (friendUser.id === currentUser.id) {
+    if (friendId === currentUserId) {
       return res.status(400).json({
         success: false,
         message: 'You cannot add yourself'
@@ -50,10 +52,7 @@ router.post('/request', authenticateUser, (req, res) => {
     }
 
     // Check if request already exists
-    const existingRequest = Array.from(friends.values()).find(f => 
-      (f.userId === currentUser.id && f.friendId === friendUser.id) ||
-      (f.userId === friendUser.id && f.friendId === currentUser.id)
-    );
+    const existingRequest = await FriendOps.findFriendship(currentUserId, friendId);
 
     if (existingRequest) {
       if (existingRequest.status === 'accepted') {
@@ -70,18 +69,20 @@ router.post('/request', authenticateUser, (req, res) => {
     }
 
     // Create friend request
-    const friendRequest = new Friend(currentUser.id, friendUser.id);
-    friends.set(friendRequest.id, friendRequest);
-
-    // Save data
-    saveData();
+    const friendRequest = await FriendOps.create(currentUserId, friendId);
 
     console.log('✅ Friend request created');
 
     res.json({
       success: true,
       message: `Friend request sent to ${friendUser.username}`,
-      friendRequest: friendRequest.toJSON()
+      friendRequest: {
+        id: friendRequest._id.toString(),
+        userId: friendRequest.userId.toString(),
+        friendId: friendRequest.friendId.toString(),
+        status: friendRequest.status,
+        createdAt: friendRequest.createdAt
+      }
     });
   } catch (error) {
     console.error('Friend request error:', error);
@@ -93,21 +94,33 @@ router.post('/request', authenticateUser, (req, res) => {
 });
 
 // Get pending friend requests
-router.get('/requests', authenticateUser, (req, res) => {
+router.get('/requests', authenticateUser, async (req, res) => {
   try {
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
     const pendingRequests = [];
 
     // Get requests where current user is the receiver
-    for (let [id, friend] of friends) {
-      if (friend.friendId === currentUser.id && friend.status === 'pending') {
-        const sender = users.get(friend.userId);
-        if (sender) {
-          pendingRequests.push({
-            ...friend.toJSON(),
-            sender: sender.toPublicJSON()
-          });
-        }
+    const requests = await FriendOps.getPendingRequests(currentUserId);
+    
+    for (const request of requests) {
+      const sender = await UserOps.findById(request.userId.toString());
+      if (sender) {
+        pendingRequests.push({
+          id: request._id.toString(),
+          userId: request.userId.toString(),
+          friendId: request.friendId.toString(),
+          status: request.status,
+          createdAt: request.createdAt,
+          sender: {
+            id: sender._id.toString(),
+            username: sender.username,
+            email: sender.email,
+            avatarUrl: sender.avatarUrl,
+            isOnline: sender.isOnline,
+            lastSeen: sender.lastSeen
+          }
+        });
       }
     }
 
@@ -126,12 +139,13 @@ router.get('/requests', authenticateUser, (req, res) => {
 });
 
 // Accept friend request
-router.post('/requests/:requestId/accept', authenticateUser, (req, res) => {
+router.post('/requests/:requestId/accept', authenticateUser, async (req, res) => {
   try {
     const { requestId } = req.params;
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
 
-    const friendRequest = friends.get(requestId);
+    const friendRequest = await FriendOps.findById(requestId);
     if (!friendRequest) {
       return res.status(404).json({
         success: false,
@@ -140,7 +154,7 @@ router.post('/requests/:requestId/accept', authenticateUser, (req, res) => {
     }
 
     // Check if current user is the receiver
-    if (friendRequest.friendId !== currentUser.id) {
+    if (friendRequest.friendId.toString() !== currentUserId) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -148,15 +162,18 @@ router.post('/requests/:requestId/accept', authenticateUser, (req, res) => {
     }
 
     // Accept the request
-    friendRequest.accept();
-
-    // Save data
-    saveData();
+    const updated = await FriendOps.accept(requestId);
 
     res.json({
       success: true,
       message: 'Friend request accepted',
-      friend: friendRequest.toJSON()
+      friend: {
+        id: updated._id.toString(),
+        userId: updated.userId.toString(),
+        friendId: updated.friendId.toString(),
+        status: updated.status,
+        createdAt: updated.createdAt
+      }
     });
   } catch (error) {
     console.error('Accept request error:', error);
@@ -168,12 +185,13 @@ router.post('/requests/:requestId/accept', authenticateUser, (req, res) => {
 });
 
 // Decline friend request
-router.post('/requests/:requestId/decline', authenticateUser, (req, res) => {
+router.post('/requests/:requestId/decline', authenticateUser, async (req, res) => {
   try {
     const { requestId } = req.params;
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
 
-    const friendRequest = friends.get(requestId);
+    const friendRequest = await FriendOps.findById(requestId);
     if (!friendRequest) {
       return res.status(404).json({
         success: false,
@@ -181,7 +199,7 @@ router.post('/requests/:requestId/decline', authenticateUser, (req, res) => {
       });
     }
 
-    if (friendRequest.friendId !== currentUser.id) {
+    if (friendRequest.friendId.toString() !== currentUserId) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -189,10 +207,7 @@ router.post('/requests/:requestId/decline', authenticateUser, (req, res) => {
     }
 
     // Remove friend request
-    friends.delete(requestId);
-
-    // Save data
-    saveData();
+    await FriendOps.delete(requestId);
 
     res.json({
       success: true,
@@ -208,28 +223,36 @@ router.post('/requests/:requestId/decline', authenticateUser, (req, res) => {
 });
 
 // Get friends list
-router.get('/list', authenticateUser, (req, res) => {
+router.get('/list', authenticateUser, async (req, res) => {
   try {
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
     const friendsList = [];
 
     // Find all accepted friendships
-    for (let [id, friend] of friends) {
-      if (friend.status === 'accepted') {
-        let friendUser = null;
-        
-        if (friend.userId === currentUser.id) {
-          friendUser = users.get(friend.friendId);
-        } else if (friend.friendId === currentUser.id) {
-          friendUser = users.get(friend.userId);
-        }
+    const friendships = await FriendOps.getUserFriends(currentUserId);
+    
+    for (const friendship of friendships) {
+      const friendId = friendship.userId.toString() === currentUserId ? friendship.friendId.toString() : friendship.userId.toString();
+      const friendUser = await UserOps.findById(friendId);
 
-        if (friendUser) {
-          friendsList.push({
-            ...friend.toJSON(),
-            friend: friendUser.toPublicJSON()
-          });
-        }
+      if (friendUser) {
+        friendsList.push({
+          id: friendship._id.toString(),
+          userId: friendship.userId.toString(),
+          friendId: friendship.friendId.toString(),
+          status: friendship.status,
+          createdAt: friendship.createdAt,
+          friend: {
+            id: friendUser._id.toString(),
+            username: friendUser.username,
+            email: friendUser.email,
+            avatarUrl: friendUser.avatarUrl,
+            isOnline: friendUser.isOnline,
+            lastSeen: friendUser.lastSeen,
+            bio: friendUser.bio
+          }
+        });
       }
     }
 
@@ -248,26 +271,18 @@ router.get('/list', authenticateUser, (req, res) => {
 });
 
 // Remove friend
-router.delete('/:friendId', authenticateUser, (req, res) => {
+router.delete('/:friendId', authenticateUser, async (req, res) => {
   try {
     const { friendId } = req.params;
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
 
     console.log('🗑️ Removing friend:', friendId);
 
     // Find the friendship
-    let friendshipToRemove = null;
-    for (let [id, friend] of friends) {
-      if (
-        (friend.userId === currentUser.id && friend.friendId === friendId && friend.status === 'accepted') ||
-        (friend.userId === friendId && friend.friendId === currentUser.id && friend.status === 'accepted')
-      ) {
-        friendshipToRemove = friend;
-        break;
-      }
-    }
+    const friendship = await FriendOps.findFriendship(currentUserId, friendId);
 
-    if (!friendshipToRemove) {
+    if (!friendship || friendship.status !== 'accepted') {
       return res.status(404).json({
         success: false,
         message: 'Friendship not found'
@@ -275,10 +290,7 @@ router.delete('/:friendId', authenticateUser, (req, res) => {
     }
 
     // Remove the friendship
-    friends.delete(friendshipToRemove.id);
-
-    // Save data
-    saveData();
+    await FriendOps.delete(friendship._id.toString());
 
     console.log('✅ Friend removed successfully');
 

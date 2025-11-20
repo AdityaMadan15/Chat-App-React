@@ -1,14 +1,14 @@
 import express from 'express';
-import { users, saveData } from '../config/database.js';
+import { UserOps, FriendOps } from '../config/mongodb.js';
 import { authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Change password
-router.post('/change-password', authenticateUser, (req, res) => {
+router.post('/change-password', authenticateUser, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = req.user;
+    const userId = req.user._id.toString();
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
@@ -18,7 +18,8 @@ router.post('/change-password', authenticateUser, (req, res) => {
     }
 
     // Validate current password
-    if (!user.validatePassword(currentPassword)) {
+    const isValid = await req.user.validatePassword(currentPassword);
+    if (!isValid) {
       return res.status(400).json({
         success: false,
         message: 'Current password is incorrect'
@@ -26,10 +27,7 @@ router.post('/change-password', authenticateUser, (req, res) => {
     }
 
     // Update password
-    user.password = user.hashPassword(newPassword);
-
-    // Save data
-    saveData();
+    await UserOps.updatePassword(userId, newPassword);
 
     res.json({
       success: true,
@@ -46,30 +44,25 @@ router.post('/change-password', authenticateUser, (req, res) => {
 });
 
 // Update notification settings
-router.post('/notifications', authenticateUser, (req, res) => {
+router.post('/notifications', authenticateUser, async (req, res) => {
   try {
     const { settings } = req.body;
-    const user = req.user;
-
-    // Initialize user settings if not exists
-    if (!user.settings) user.settings = {};
-    if (!user.settings.notifications) user.settings.notifications = {};
+    const userId = req.user._id.toString();
 
     // Update notification settings
-    user.settings.notifications = { 
-      messageNotifications: true, // Defaults
+    const updatedSettings = {
+      messageNotifications: true,
       soundAlerts: true,
       desktopNotifications: false,
-      ...settings 
+      ...settings
     };
 
-    // Save data
-    saveData();
+    await UserOps.updateNotificationSettings(userId, updatedSettings);
 
     res.json({
       success: true,
       message: 'Notification settings updated',
-      settings: user.settings.notifications
+      settings: updatedSettings
     });
 
   } catch (error) {
@@ -85,19 +78,12 @@ router.post('/notifications', authenticateUser, (req, res) => {
 router.post('/privacy', authenticateUser, async (req, res) => {
   try {
     const { settings } = req.body;
-    const user = req.user;
+    const userId = req.user._id.toString();
 
-    console.log('🔒 Updating privacy settings for:', user.username, settings);
-
-    // Initialize user settings if not exists
-    if (!user.settings) user.settings = {};
-    if (!user.settings.privacy) user.settings.privacy = {};
-
-    // Store previous settings to detect changes
-    const previousSettings = { ...user.settings.privacy };
+    console.log('🔒 Updating privacy settings for:', req.user.username, settings);
 
     // Update privacy settings with defaults
-    user.settings.privacy = {
+    const privacySettings = {
       readReceipts: true,
       typingIndicator: true, 
       onlineStatus: true,
@@ -106,30 +92,25 @@ router.post('/privacy', authenticateUser, async (req, res) => {
       ...settings
     };
 
-    // Save data
-    saveData();
+    await UserOps.updatePrivacySettings(userId, privacySettings);
+
+    // Get updated user
+    const user = await UserOps.findById(userId);
 
     // Get io instance
     const io = req.app.get('io');
     
     if (io) {
-      // Import friends dynamically
-      const { friends } = await import('../config/database.js');
-      
       // Find all friends
-      const friendsList = Array.from(friends.values())
-        .filter(f => 
-          (f.userId === user.id || f.friendId === user.id) && 
-          f.status === 'accepted'
-        )
-        .map(f => f.userId === user.id ? f.friendId : f.userId);
+      const friendsList = await FriendOps.getUserFriends(userId);
 
       // Notify each friend about privacy changes
-      friendsList.forEach(friendId => {
-        const friend = users.get(friendId);
+      for (const friendship of friendsList) {
+        const friendId = friendship.userId.toString() === userId ? friendship.friendId.toString() : friendship.userId.toString();
+        const friend = await UserOps.findById(friendId);
         if (friend && friend.socketId) {
           io.to(friend.socketId).emit('friend-privacy-changed', {
-            userId: user.id,
+            userId: user._id.toString(),
             username: user.username,
             privacy: user.settings.privacy,
             isOnline: user.settings.privacy.onlineStatus ? user.isOnline : false,
@@ -137,7 +118,7 @@ router.post('/privacy', authenticateUser, async (req, res) => {
           });
           console.log('📡 Privacy update sent to:', friend.username);
         }
-      });
+      }
     }
 
     res.json({
@@ -161,27 +142,24 @@ router.get('/', authenticateUser, (req, res) => {
     const user = req.user;
     
     // Initialize defaults if not set
-    if (!user.settings) user.settings = {};
-    if (!user.settings.notifications) {
-      user.settings.notifications = {
+    const settings = {
+      notifications: user.settings?.notifications || {
         messageNotifications: true,
         soundAlerts: true,
         desktopNotifications: false
-      };
-    }
-    if (!user.settings.privacy) {
-      user.settings.privacy = {
+      },
+      privacy: user.settings?.privacy || {
         readReceipts: true,
         typingIndicator: true,
         onlineStatus: true,
         lastSeen: true,
         profilePhoto: true
-      };
-    }
+      }
+    };
 
     res.json({
       success: true,
-      settings: user.settings
+      settings
     });
 
   } catch (error) {

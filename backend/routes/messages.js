@@ -1,24 +1,24 @@
 import express from 'express';
-import { users, friends, messages, saveData } from '../config/database.js';
-import Message from '../models/Message.js';
+import { UserOps, FriendOps, MessageOps } from '../config/mongodb.js';
 import { authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get conversation with a friend - UPDATED WITH DEBUG
-router.get('/conversation/:friendId', authenticateUser, (req, res) => {
+router.get('/conversation/:friendId', authenticateUser, async (req, res) => {
   try {
     const { friendId } = req.params;
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
 
     console.log('🔍 CONVERSATION REQUEST:', {
         currentUser: currentUser.username,
         friendId: friendId,
-        currentUserId: currentUser.id
+        currentUserId: currentUserId
     });
 
     // Check if friend exists
-    const friend = users.get(friendId);
+    const friend = await UserOps.findById(friendId);
     if (!friend) {
       return res.status(404).json({
         success: false,
@@ -27,10 +27,7 @@ router.get('/conversation/:friendId', authenticateUser, (req, res) => {
     }
 
     // Check if users are friends
-    const isFriend = Array.from(friends.values()).some(f => 
-      (f.userId === currentUser.id && f.friendId === friend.id && f.status === 'accepted') ||
-      (f.userId === friend.id && f.friendId === currentUser.id && f.status === 'accepted')
-    );
+    const isFriend = await FriendOps.areFriends(currentUserId, friendId);
 
     if (!isFriend) {
       return res.status(403).json({
@@ -40,34 +37,49 @@ router.get('/conversation/:friendId', authenticateUser, (req, res) => {
     }
 
     // Get conversation messages
-    const conversationId = [currentUser.id, friend.id].sort().join('-');
-    const conversationMessages = messages.get(conversationId) || [];
+    const conversationMessages = await MessageOps.getConversation(currentUserId, friendId);
 
     console.log('🔍 CONVERSATION DATA:', {
-        conversationId: conversationId,
-        messagesCount: conversationMessages.length,
-        messages: conversationMessages.slice(0, 3) // Log first 3 messages
+        messagesCount: conversationMessages.length
     });
 
     // Mark messages as read
-    conversationMessages.forEach(msg => {
-      if (msg.receiverId === currentUser.id && !msg.isRead) {
-        // Handle both Message objects and plain objects
-        if (typeof msg.markAsRead === 'function') {
-          msg.markAsRead();
-        } else {
-          msg.isRead = true;
-          msg.status = 'read';
-          msg.readAt = new Date();
-        }
+    for (const msg of conversationMessages) {
+      if (msg.receiverId.toString() === currentUserId && !msg.isRead) {
+        await MessageOps.markAsRead(msg._id, currentUserId);
       }
-    });
+    }
+
+    // Convert messages to plain objects
+    const messagesJson = conversationMessages.map(msg => ({
+      id: msg._id.toString(),
+      senderId: msg.senderId.toString(),
+      receiverId: msg.receiverId.toString(),
+      content: msg.content,
+      messageType: msg.messageType,
+      timestamp: msg.timestamp,
+      isRead: msg.isRead,
+      status: msg.status,
+      deliveredAt: msg.deliveredAt,
+      readAt: msg.readAt,
+      reactions: msg.reactions ? Object.fromEntries(msg.reactions) : {},
+      deletedFor: msg.deletedFor || [],
+      isDeletedForEveryone: msg.isDeletedForEveryone || false
+    }));
 
     res.json({
       success: true,
-      messages: conversationMessages.map(msg => typeof msg.toJSON === 'function' ? msg.toJSON() : msg),
-      friend: friend.toPublicJSON(),
-      count: conversationMessages.length
+      messages: messagesJson,
+      friend: {
+        id: friend._id.toString(),
+        username: friend.username,
+        email: friend.email,
+        avatarUrl: friend.avatarUrl,
+        isOnline: friend.isOnline,
+        lastSeen: friend.lastSeen,
+        bio: friend.bio
+      },
+      count: messagesJson.length
     });
   } catch (error) {
     console.error('Get conversation error:', error);
@@ -79,34 +91,48 @@ router.get('/conversation/:friendId', authenticateUser, (req, res) => {
 });
 
 // Get recent conversations - UPDATED WITH DEBUG
-router.get('/conversations', authenticateUser, (req, res) => {
+router.get('/conversations', authenticateUser, async (req, res) => {
   try {
     const currentUser = req.user;
+    const currentUserId = currentUser._id.toString();
     const conversations = [];
 
     console.log('🔍 LOADING RECENT CONVERSATIONS FOR:', currentUser.username);
 
     // Get all friends
-    const userFriends = Array.from(friends.values()).filter(f => 
-      (f.userId === currentUser.id && f.status === 'accepted') ||
-      (f.friendId === currentUser.id && f.status === 'accepted')
-    );
+    const userFriends = await FriendOps.getUserFriends(currentUserId);
 
     console.log(`🔍 FOUND ${userFriends.length} FRIENDS`);
 
     for (let friendship of userFriends) {
-      const friendId = friendship.userId === currentUser.id ? friendship.friendId : friendship.userId;
-      const friend = users.get(friendId);
+      const friendId = friendship.userId.toString() === currentUserId ? friendship.friendId.toString() : friendship.userId.toString();
+      const friend = await UserOps.findById(friendId);
       
       if (friend) {
         // Get last message in conversation
-        const conversationId = [currentUser.id, friend.id].sort().join('-');
-        const conversationMessages = messages.get(conversationId) || [];
-        const lastMessage = conversationMessages[conversationMessages.length - 1];
+        const conversationMessages = await MessageOps.getConversation(currentUserId, friendId);
+        const lastMessage = conversationMessages.length > 0 ? conversationMessages[conversationMessages.length - 1] : null;
 
         conversations.push({
-          friend: friend.toPublicJSON(),
-          lastMessage: lastMessage ? (typeof lastMessage.toJSON === 'function' ? lastMessage.toJSON() : lastMessage) : null,
+          friend: {
+            id: friend._id.toString(),
+            username: friend.username,
+            email: friend.email,
+            avatarUrl: friend.avatarUrl,
+            isOnline: friend.isOnline,
+            lastSeen: friend.lastSeen,
+            bio: friend.bio
+          },
+          lastMessage: lastMessage ? {
+            id: lastMessage._id.toString(),
+            senderId: lastMessage.senderId.toString(),
+            receiverId: lastMessage.receiverId.toString(),
+            content: lastMessage.content,
+            messageType: lastMessage.messageType,
+            timestamp: lastMessage.timestamp,
+            isRead: lastMessage.isRead,
+            isDeletedForEveryone: lastMessage.isDeletedForEveryone || false
+          } : null,
           lastActivity: lastMessage ? lastMessage.timestamp : friendship.createdAt
         });
 
@@ -134,11 +160,11 @@ router.get('/conversations', authenticateUser, (req, res) => {
 });
 
 // Add reaction to a message
-router.post('/:messageId/react', authenticateUser, (req, res) => {
+router.post('/:messageId/react', authenticateUser, async (req, res) => {
   try {
     const { messageId } = req.params;
     const { emoji } = req.body;
-    const currentUserId = req.user.id;
+    const currentUserId = req.user._id.toString();
 
     if (!emoji) {
       return res.status(400).json({
@@ -147,45 +173,43 @@ router.post('/:messageId/react', authenticateUser, (req, res) => {
       });
     }
 
-    // Find the message in all conversations
-    let messageFound = false;
-    for (const [conversationId, msgs] of messages) {
-      const message = msgs.find(m => m.id === messageId);
-      if (message) {
-        // Initialize reactions if needed
-        if (!message.reactions) {
-          message.reactions = {};
-        }
-
-        // Add or update reaction
-        message.reactions[currentUserId] = emoji;
-        saveData();
-        messageFound = true;
-
-        // Emit socket event
-        const io = req.app.get('io');
-        const [user1Id, user2Id] = conversationId.split('-');
-        io.to(user1Id).to(user2Id).emit('message-reaction', {
-          messageId,
-          userId: currentUserId,
-          emoji,
-          reactions: message.reactions
-        });
-
-        return res.json({
-          success: true,
-          message: 'Reaction added',
-          reactions: message.reactions
-        });
-      }
-    }
-
-    if (!messageFound) {
+    // Add reaction using MongoDB
+    const message = await MessageOps.addReaction(messageId, currentUserId, emoji);
+    
+    if (!message) {
       return res.status(404).json({
         success: false,
         message: 'Message not found'
       });
     }
+
+    // Emit socket event
+    const io = req.app.get('io');
+    const user1 = await UserOps.findById(message.senderId.toString());
+    const user2 = await UserOps.findById(message.receiverId.toString());
+    
+    if (user1 && user1.socketId) {
+      io.to(user1.socketId).emit('message-reaction', {
+        messageId,
+        userId: currentUserId,
+        emoji,
+        reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+      });
+    }
+    if (user2 && user2.socketId) {
+      io.to(user2.socketId).emit('message-reaction', {
+        messageId,
+        userId: currentUserId,
+        emoji,
+        reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Reaction added',
+      reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+    });
   } catch (error) {
     console.error('Add reaction error:', error);
     res.status(500).json({
@@ -196,43 +220,46 @@ router.post('/:messageId/react', authenticateUser, (req, res) => {
 });
 
 // Remove reaction from a message
-router.delete('/:messageId/react', authenticateUser, (req, res) => {
+router.delete('/:messageId/react', authenticateUser, async (req, res) => {
   try {
     const { messageId } = req.params;
-    const currentUserId = req.user.id;
+    const currentUserId = req.user._id.toString();
 
-    // Find the message in all conversations
-    let messageFound = false;
-    for (const [conversationId, msgs] of messages) {
-      const message = msgs.find(m => m.id === messageId);
-      if (message && message.reactions) {
-        delete message.reactions[currentUserId];
-        saveData();
-        messageFound = true;
-
-        // Emit socket event
-        const io = req.app.get('io');
-        const [user1Id, user2Id] = conversationId.split('-');
-        io.to(user1Id).to(user2Id).emit('message-reaction-removed', {
-          messageId,
-          userId: currentUserId,
-          reactions: message.reactions
-        });
-
-        return res.json({
-          success: true,
-          message: 'Reaction removed',
-          reactions: message.reactions
-        });
-      }
-    }
-
-    if (!messageFound) {
+    // Remove reaction using MongoDB
+    const message = await MessageOps.removeReaction(messageId, currentUserId);
+    
+    if (!message) {
       return res.status(404).json({
         success: false,
         message: 'Message not found'
       });
     }
+
+    // Emit socket event
+    const io = req.app.get('io');
+    const user1 = await UserOps.findById(message.senderId.toString());
+    const user2 = await UserOps.findById(message.receiverId.toString());
+    
+    if (user1 && user1.socketId) {
+      io.to(user1.socketId).emit('message-reaction-removed', {
+        messageId,
+        userId: currentUserId,
+        reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+      });
+    }
+    if (user2 && user2.socketId) {
+      io.to(user2.socketId).emit('message-reaction-removed', {
+        messageId,
+        userId: currentUserId,
+        reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Reaction removed',
+      reactions: message.reactions ? Object.fromEntries(message.reactions) : {}
+    });
   } catch (error) {
     console.error('Remove reaction error:', error);
     res.status(500).json({
@@ -243,42 +270,25 @@ router.delete('/:messageId/react', authenticateUser, (req, res) => {
 });
 
 // Delete message for me
-router.post('/:messageId/delete-for-me', authenticateUser, (req, res) => {
+router.post('/:messageId/delete-for-me', authenticateUser, async (req, res) => {
   try {
     const { messageId } = req.params;
-    const currentUserId = req.user.id;
+    const currentUserId = req.user._id.toString();
 
-    // Find the message in all conversations
-    let messageFound = false;
-    for (const [conversationId, msgs] of messages) {
-      const message = msgs.find(m => m.id === messageId);
-      if (message) {
-        // Initialize deletedFor if needed
-        if (!message.deletedFor) {
-          message.deletedFor = [];
-        }
-
-        // Add current user to deletedFor array
-        if (!message.deletedFor.includes(currentUserId)) {
-          message.deletedFor.push(currentUserId);
-        }
-
-        saveData();
-        messageFound = true;
-
-        return res.json({
-          success: true,
-          message: 'Message deleted for you'
-        });
-      }
-    }
-
-    if (!messageFound) {
+    // Delete for me using MongoDB
+    const message = await MessageOps.deleteForMe(messageId, currentUserId);
+    
+    if (!message) {
       return res.status(404).json({
         success: false,
         message: 'Message not found'
       });
     }
+
+    return res.json({
+      success: true,
+      message: 'Message deleted for you'
+    });
   } catch (error) {
     console.error('Delete for me error:', error);
     res.status(500).json({
@@ -289,80 +299,70 @@ router.post('/:messageId/delete-for-me', authenticateUser, (req, res) => {
 });
 
 // Delete message for everyone
-router.post('/:messageId/delete-for-everyone', authenticateUser, (req, res) => {
+router.post('/:messageId/delete-for-everyone', authenticateUser, async (req, res) => {
   try {
     const { messageId } = req.params;
-    const currentUserId = req.user.id;
+    const currentUserId = req.user._id.toString();
 
-    // Find the message in all conversations
-    let messageFound = false;
-    for (const [conversationId, msgs] of messages) {
-      const message = msgs.find(m => m.id === messageId);
-      if (message) {
-        // Check if user is the sender
-        if (message.senderId !== currentUserId) {
-          return res.status(403).json({
-            success: false,
-            message: 'You can only delete your own messages'
-          });
-        }
-
-        // Check time limit (2 minutes)
-        const twoMinutes = 2 * 60 * 1000;
-        const timeSinceSent = new Date() - new Date(message.timestamp);
-        if (timeSinceSent > twoMinutes) {
-          return res.status(403).json({
-            success: false,
-            message: 'Messages can only be deleted within 2 minutes of sending'
-          });
-        }
-
-        // Delete for everyone
-        message.isDeletedForEveryone = true;
-        message.deletedAt = new Date();
-        saveData();
-        messageFound = true;
-
-        // Emit socket event to both users
-        const io = req.app.get('io');
-        const [user1Id, user2Id] = conversationId.split('-');
-        
-        // Get actual users to find their socket IDs
-        const user1 = users.get(user1Id);
-        const user2 = users.get(user2Id);
-        
-        console.log('📡 Emitting delete-for-everyone event to both users');
-        
-        // Emit to both users' socket IDs if they're online
-        if (user1 && user1.socketId) {
-          io.to(user1.socketId).emit('message-deleted-everyone', {
-            messageId,
-            conversationId
-          });
-          console.log('✅ Sent to user1:', user1.username, 'socketId:', user1.socketId);
-        }
-        
-        if (user2 && user2.socketId) {
-          io.to(user2.socketId).emit('message-deleted-everyone', {
-            messageId,
-            conversationId
-          });
-          console.log('✅ Sent to user2:', user2.username, 'socketId:', user2.socketId);
-        }
-
-        return res.json({
-          success: true,
-          message: 'Message deleted for everyone'
-        });
-      }
-    }
-
-    if (!messageFound) {
+    // Find the message
+    const message = await MessageOps.findById(messageId);
+    
+    if (!message) {
       return res.status(404).json({
         success: false,
         message: 'Message not found'
       });
     }
+
+    // Check if user is the sender
+    if (message.senderId.toString() !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages'
+      });
+    }
+
+    // Check time limit (2 minutes)
+    const twoMinutes = 2 * 60 * 1000;
+    const timeSinceSent = new Date() - new Date(message.timestamp);
+    if (timeSinceSent > twoMinutes) {
+      return res.status(403).json({
+        success: false,
+        message: 'Messages can only be deleted within 2 minutes of sending'
+      });
+    }
+
+    // Delete for everyone
+    await MessageOps.deleteForEveryone(messageId);
+    
+    // Emit socket event to both users
+    const io = req.app.get('io');
+    const user1 = await UserOps.findById(message.senderId.toString());
+    const user2 = await UserOps.findById(message.receiverId.toString());
+    
+    console.log('📡 Emitting delete-for-everyone event to both users');
+    
+    // Emit to both users' socket IDs if they're online
+    if (user1 && user1.socketId) {
+      io.to(user1.socketId).emit('message-deleted-everyone', {
+        messageId,
+        conversationId: null // Not needed with MongoDB
+      });
+      console.log('✅ Sent to user1:', user1.username, 'socketId:', user1.socketId);
+    }
+    
+    if (user2 && user2.socketId) {
+      io.to(user2.socketId).emit('message-deleted-everyone', {
+        messageId,
+        conversationId: null
+      });
+      console.log('✅ Sent to user2:', user2.username, 'socketId:', user2.socketId);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Message deleted for everyone'
+    });
   } catch (error) {
     console.error('Delete for everyone error:', error);
     res.status(500).json({

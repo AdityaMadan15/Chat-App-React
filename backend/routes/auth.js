@@ -1,7 +1,6 @@
 import express from 'express';
-import { users, friends, saveData } from '../config/database.js';
+import { UserOps } from '../config/mongodb.js';
 import { authenticateUser, optionalAuth } from '../middleware/auth.js';
-import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -25,9 +24,7 @@ router.post('/register', async (req, res) => {
     console.log('📝 Registration attempt:', { username, email });
     
     // Check if user exists
-    const existingUser = Array.from(users.values()).find(u => 
-      u.username === username || u.email === email
-    );
+    const existingUser = await UserOps.findByUsernameOrEmail(username, email);
     
     if (existingUser) {
       return res.status(400).json({
@@ -37,16 +34,21 @@ router.post('/register', async (req, res) => {
     }
     
     // Create new user
-    const user = new User(username, email, password);
-    users.set(user.id, user);
-    saveData();
+    const user = await UserOps.create({ username, email, password });
     
     console.log('✅ User registered successfully:', username);
     
     res.json({
       success: true,
       message: 'User created successfully',
-      user: user.toPublicJSON()
+      user: {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+      }
     });
   } catch (error) {
     console.error('❌ Registration error:', error);
@@ -65,7 +67,7 @@ router.post('/login', async (req, res) => {
     console.log('🔐 Login attempt for user:', username);
     
     // Find user
-    const user = findUserByUsername(username);
+    const user = await UserOps.findByUsername(username);
     
     if (!user) {
       console.log('❌ User not found:', username);
@@ -76,12 +78,11 @@ router.post('/login', async (req, res) => {
     }
     
     console.log('✅ User found:', user.username);
-    console.log('User has validatePassword method:', typeof user.validatePassword === 'function');
     
     // Validate password
     let isValid = false;
     try {
-      isValid = user.validatePassword(password);
+      isValid = await user.validatePassword(password);
       console.log('Password validation result:', isValid);
     } catch (error) {
       console.error('❌ Password validation error:', error);
@@ -104,7 +105,16 @@ router.post('/login', async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      user: user.toPublicJSON()
+      user: {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+        bio: user.bio,
+        settings: user.settings
+      }
     });
   } catch (error) {
     console.error('❌ Login error:', error);
